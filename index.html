@@ -1,0 +1,697 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<style>body{margin:0}img{max-width:100%}[hidden]{display:none!important}</style>
+<title>SnapFlow</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: three panes. Slim module rail, the workspace, and the agent that operates it. */
+:root{
+  --hue:262; --acc-l:.52; --acc-c:.19;
+  --bg:#f3f4f8; --panel:#ffffff; --panel-2:#eceef5; --line:#dcdfea; --fg:#151825; --muted:#5d6379; --faint:#8a90a6;
+  --accent:oklch(var(--acc-l) var(--acc-c) var(--hue)); --accent-soft:oklch(var(--acc-l) var(--acc-c) var(--hue) / .12); --on-accent:#fff;
+  --ok:#17804f; --ok-soft:#17804f1c; --warn:#a35f00; --warn-soft:#a35f001f; --bad:#c2334d; --bad-soft:#c2334d1a;
+  --muslin-a:#4c6c9c; --muslin-b:#22344f; --skin:#d9b9a0; --shirt:#e9ecf3;
+  --display:"Bricolage Grotesque","Inter",system-ui,sans-serif; --body:"Inter",system-ui,-apple-system,"Segoe UI",sans-serif; --mono:"JetBrains Mono",ui-monospace,Menlo,monospace;
+  --r:10px;
+}
+@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]){
+  --acc-l:.74; --acc-c:.14;
+  --bg:#0e111a; --panel:#161a26; --panel-2:#1d2231; --line:#2a3044; --fg:#eceef6; --muted:#a0a6bd; --faint:#6f768e; --on-accent:#0e111a;
+  --ok:#4fd093; --ok-soft:#4fd09322; --warn:#f0b354; --warn-soft:#f0b35422; --bad:#ff7d92; --bad-soft:#ff7d9222;
+  --muslin-a:#3f5c88; --muslin-b:#16223a; color-scheme:dark } }
+:root[data-theme="dark"]{
+  --acc-l:.74; --acc-c:.14;
+  --bg:#0e111a; --panel:#161a26; --panel-2:#1d2231; --line:#2a3044; --fg:#eceef6; --muted:#a0a6bd; --faint:#6f768e; --on-accent:#0e111a;
+  --ok:#4fd093; --ok-soft:#4fd09322; --warn:#f0b354; --warn-soft:#f0b35422; --bad:#ff7d92; --bad-soft:#ff7d9222;
+  --muslin-a:#3f5c88; --muslin-b:#16223a; color-scheme:dark }
+
+html,body{height:100%}
+body{background:var(--bg);color:var(--fg);font:14px/1.5 var(--body);overflow:hidden}
+*{box-sizing:border-box}
+button,input,select,textarea{font:inherit;color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+h1,h2,h3{font-family:var(--display);margin:0;text-wrap:balance;letter-spacing:-.01em}
+h1{font-size:26px;line-height:1.15;font-weight:700} h2{font-size:16px;font-weight:700} h3{font-size:14px;font-weight:700}
+p{margin:0}
+.num{font-variant-numeric:tabular-nums}
+.mono{font-family:var(--mono);font-size:12px}
+.muted{color:var(--muted)} .faint{color:var(--faint)}
+.label{font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--faint);font-weight:600}
+
+.app{display:grid;grid-template-columns:216px minmax(0,1fr) 372px;height:100%}
+/* nav */
+.nav{background:var(--panel);border-right:1px solid var(--line);display:flex;flex-direction:column;min-height:0}
+.brand{display:flex;align-items:center;gap:10px;padding:16px 16px 12px}
+.mark{width:28px;height:28px;border-radius:8px;background:var(--accent);display:grid;place-items:center;flex:none}
+.mark i{width:12px;height:12px;border:2px solid var(--on-accent);border-radius:50%;display:block}
+.brand b{font-family:var(--display);font-size:17px}
+.brand small{display:block;color:var(--faint);font-size:11px;line-height:1.2}
+.navlist{flex:1;overflow-y:auto;padding:4px 8px 12px;display:flex;flex-direction:column;gap:2px}
+.navlist .label{padding:12px 8px 4px}
+.navlist a{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:7px 8px;border-radius:8px;color:var(--muted);text-decoration:none;font-weight:500}
+.navlist a:hover{background:var(--panel-2);color:var(--fg)}
+.navlist a[aria-current="page"]{background:var(--accent-soft);color:var(--accent)}
+.badge{font-size:11px;font-weight:600;min-width:20px;padding:0 6px;border-radius:10px;background:var(--panel-2);color:var(--muted);text-align:center}
+a[aria-current="page"] .badge{background:var(--accent);color:var(--on-accent)}
+.navfoot{border-top:1px solid var(--line);padding:10px 12px;display:flex;flex-direction:column;gap:6px}
+.navfoot select{width:100%;background:var(--panel-2);border:1px solid var(--line);border-radius:8px;padding:6px 8px}
+.linkbtn{background:none;border:0;color:var(--faint);padding:0;text-align:left;font-size:12px}
+.linkbtn:hover{color:var(--fg);text-decoration:underline}
+
+/* main */
+.main{display:flex;flex-direction:column;min-width:0;min-height:0}
+.topbar{display:none;align-items:center;gap:8px;padding:10px 16px;border-bottom:1px solid var(--line);background:var(--panel)}
+.topbar b{font-family:var(--display);font-size:16px;flex:1}
+.view{flex:1;overflow-y:auto;padding-block:24px 40px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+.wrap{max-width:1040px;margin:0 auto;display:flex;flex-direction:column;gap:20px}
+.head{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:12px}
+.head p{color:var(--muted);max-width:62ch;margin-top:4px}
+.row{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.grid2{display:grid;grid-template-columns:minmax(0,1.25fr) minmax(0,1fr);gap:20px;align-items:start}
+.grid2.even{grid-template-columns:repeat(2,minmax(0,1fr))}
+.stack{display:flex;flex-direction:column;gap:12px;min-width:0}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:var(--r);padding:16px;min-width:0}
+.card.flush{padding:0;overflow:hidden}
+.card > .label{display:block;margin-bottom:10px}
+.sechead{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:10px;flex-wrap:wrap}
+
+/* insight strip: what the agent sees on this screen */
+.insight{display:flex;gap:12px;align-items:flex-start;padding:12px 14px;border-radius:var(--r);background:var(--accent-soft);border:1px solid transparent}
+.insight .dot{margin-top:5px}
+.insight p{flex:1;min-width:0}
+.dot{width:8px;height:8px;border-radius:50%;background:var(--accent);flex:none}
+
+.btn{border:1px solid var(--line);background:var(--panel);border-radius:8px;padding:6px 12px;font-weight:600;font-size:13px;white-space:nowrap}
+.btn:hover{border-color:var(--faint)}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--on-accent)}
+.btn.primary:hover{filter:brightness(1.08)}
+.btn.ghost{border-color:transparent;background:none;color:var(--muted)}
+.btn.sm{padding:3px 9px;font-size:12px}
+.btn:disabled{opacity:.5;cursor:default}
+
+.pill{display:inline-flex;align-items:center;gap:5px;font-size:11.5px;font-weight:600;padding:2px 8px;border-radius:20px;background:var(--panel-2);color:var(--muted);white-space:nowrap}
+.pill.ok{background:var(--ok-soft);color:var(--ok)} .pill.warn{background:var(--warn-soft);color:var(--warn)} .pill.bad{background:var(--bad-soft);color:var(--bad)} .pill.ai{background:var(--accent-soft);color:var(--accent)}
+
+.kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}
+.kpi{display:flex;flex-direction:column;gap:2px}
+.kpi b{font-family:var(--display);font-size:26px;line-height:1.1;font-variant-numeric:tabular-nums}
+.kpi svg{margin-top:6px;width:100%;height:30px}
+
+.item{display:flex;gap:12px;align-items:flex-start;padding:12px 16px;border-top:1px solid var(--line)}
+.item:first-child{border-top:0}
+.item .body{flex:1;min-width:0}
+.item .body b{font-weight:600}
+.item .body small{display:block;color:var(--muted);font-size:12.5px;margin-top:2px}
+.item .acts{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end}
+.empty{padding:20px 16px;color:var(--muted);text-align:center}
+
+.tablebox{overflow-x:auto}
+table{border-collapse:collapse;width:100%;font-size:13.5px}
+th{font-size:11px;letter-spacing:.07em;text-transform:uppercase;color:var(--faint);font-weight:600;text-align:left;padding:10px 14px;white-space:nowrap}
+td{padding:10px 14px;border-top:1px solid var(--line);vertical-align:middle}
+tr.click{cursor:pointer} tr.click:hover td{background:var(--panel-2)} tr.sel td{background:var(--accent-soft)}
+td.r,th.r{text-align:right}
+.bar{height:6px;border-radius:4px;background:var(--panel-2);overflow:hidden;min-width:70px}
+.bar i{display:block;height:100%;background:var(--accent);border-radius:4px}
+.bar.ok i{background:var(--ok)} .bar.warn i{background:var(--warn)} .bar.bad i{background:var(--bad)}
+
+.kan{display:grid;grid-template-columns:repeat(5,minmax(190px,1fr));gap:12px;overflow-x:auto;padding-bottom:4px}
+.kan .col{background:var(--panel-2);border-radius:var(--r);padding:10px;display:flex;flex-direction:column;gap:8px;min-width:0}
+.kan .col > div:first-child{display:flex;justify-content:space-between;font-weight:600;font-size:12.5px;color:var(--muted)}
+.deal{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:10px;display:flex;flex-direction:column;gap:6px}
+.steps{display:flex;gap:4px;align-items:center}
+.steps i{height:4px;flex:1;border-radius:2px;background:var(--panel-2)} .steps i.on{background:var(--accent)}
+
+.seg{display:inline-flex;background:var(--panel-2);border-radius:8px;padding:2px}
+.seg button{border:0;background:none;padding:4px 10px;border-radius:6px;font-size:12px;font-weight:600;color:var(--muted)}
+.seg button[aria-pressed="true"]{background:var(--panel);color:var(--fg);box-shadow:0 0 0 1px var(--line)}
+.switch{width:34px;height:20px;border-radius:12px;border:0;background:var(--line);position:relative;flex:none}
+.switch::after{content:"";position:absolute;left:2px;top:2px;width:16px;height:16px;border-radius:50%;background:var(--panel);transition:transform .15s}
+.switch[aria-checked="true"]{background:var(--accent)} .switch[aria-checked="true"]::after{transform:translateX(14px)}
+
+.flow{display:flex;flex-wrap:wrap;gap:8px;align-items:stretch}
+.flow .node{flex:1 1 130px;border:1px solid var(--line);border-radius:8px;padding:8px 10px;background:var(--panel);font-size:12.5px}
+.flow .node b{display:block;font-size:12.5px}
+.flow .node.done{border-color:var(--ok);background:var(--ok-soft)}
+.flow .node.trigger{background:var(--accent-soft);border-color:transparent}
+
+/* capture */
+.finder{position:relative;aspect-ratio:4/5;max-width:100%;width:340px;border-radius:12px;overflow:hidden;background:radial-gradient(120% 90% at 30% 20%,var(--muslin-a),var(--muslin-b));margin:0 auto}
+.finder .head-s{position:absolute;left:50%;top:24%;width:30%;aspect-ratio:1/1.15;border-radius:50%;background:var(--skin);transform:translateX(-50%)}
+.finder .body-s{position:absolute;left:50%;bottom:-8%;width:74%;height:44%;border-radius:46% 46% 0 0;background:var(--shirt);transform:translateX(-50%)}
+.finder .face{position:absolute;left:31%;top:21%;width:38%;height:36%;border:1.5px solid #fff;border-radius:4px;opacity:.85}
+.finder .face.flag{border-color:#ffb347}
+.finder .cnr{position:absolute;width:22px;height:22px;border:2px solid #fff;opacity:.9}
+.cnr.a{left:12px;top:12px;border-right:0;border-bottom:0}.cnr.b{right:12px;top:12px;border-left:0;border-bottom:0}.cnr.c{left:12px;bottom:36px;border-right:0;border-top:0}.cnr.d{right:12px;bottom:36px;border-left:0;border-top:0}
+.finder .hud{position:absolute;left:0;right:0;bottom:0;padding:8px 14px;display:flex;justify-content:space-between;font-family:var(--mono);font-size:11px;color:#fff;background:linear-gradient(transparent,#0009)}
+.finder .tag{position:absolute;left:14px;top:14px;margin:26px 0 0 0;font-family:var(--mono);font-size:11px;color:#fff;background:#0008;padding:2px 6px;border-radius:4px}
+.poses{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.pose{border:1px solid var(--line);border-radius:8px;padding:8px;font-size:12px;text-align:center;background:var(--panel)}
+.pose.best{border-color:var(--ok);background:var(--ok-soft)} .pose.flag{border-color:var(--warn);background:var(--warn-soft)}
+.roster > button{display:flex;justify-content:space-between;gap:8px;width:100%;border:0;background:none;padding:7px 16px;text-align:left;border-top:1px solid var(--line)}
+.roster > button.cur{background:var(--accent-soft)}
+
+/* parent portal preview */
+.portal{border-radius:14px;border:1px solid var(--line);background:var(--panel);overflow:hidden}
+.portal .bar2{background:var(--accent);color:var(--on-accent);padding:14px 18px;font-family:var(--display);font-weight:700;font-size:16px}
+.portal .in{padding:18px;display:flex;flex-direction:column;gap:14px}
+.field{display:flex;gap:8px;flex-wrap:wrap}
+.field input,.inp{flex:1;min-width:0;background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:8px 10px}
+textarea.inp{width:100%;min-height:110px;resize:vertical;line-height:1.5}
+details{border-top:1px solid var(--line);padding:10px 0} details summary{font-weight:600;cursor:pointer}
+
+/* agent */
+.agent{background:var(--panel);border-left:1px solid var(--line);display:flex;flex-direction:column;min-height:0}
+.agent header{padding:14px 16px;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:10px}
+.agent header h2{flex:1}
+.orb{width:22px;height:22px;border-radius:50%;background:conic-gradient(from 0deg,var(--accent),oklch(.8 .12 calc(var(--hue) + 80)),var(--accent));flex:none}
+.orb.busy{animation:spin 1.2s linear infinite}
+@keyframes spin{to{transform:rotate(1turn)}}
+.msgs{flex:1;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:12px}
+.msgs > *{flex:none}
+.msg{max-width:100%;white-space:pre-wrap;overflow-wrap:anywhere}
+.msg.user{align-self:flex-end;background:var(--accent);color:var(--on-accent);padding:8px 12px;border-radius:14px 14px 4px 14px;max-width:88%}
+.msg.ai{color:var(--fg)}
+.plan{border:1px solid var(--line);border-radius:var(--r);overflow:hidden;background:var(--bg)}
+.plan .ph{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:8px 12px;border-bottom:1px solid var(--line)}
+.plan ol{list-style:none;margin:0;padding:6px 0}
+.plan li{display:flex;gap:10px;align-items:flex-start;padding:5px 12px;font-size:13px}
+.plan li .st{width:16px;height:16px;border-radius:50%;border:1.5px solid var(--faint);flex:none;margin-top:2px}
+.plan li.run .st{border-color:var(--accent);border-top-color:transparent;animation:spin .7s linear infinite}
+.plan li.done .st{background:var(--ok);border-color:var(--ok)}
+.plan li.skip{color:var(--faint);text-decoration:line-through}
+.plan li small{display:block;color:var(--muted)}
+.plan .pf{display:flex;gap:8px;padding:8px 12px;border-top:1px solid var(--line);flex-wrap:wrap}
+.chips{display:flex;flex-wrap:wrap;gap:6px;padding:0 16px 10px}
+.chip{border:1px solid var(--line);background:none;border-radius:16px;padding:4px 10px;font-size:12.5px;color:var(--muted);text-align:left}
+.chip:hover{border-color:var(--accent);color:var(--accent)}
+.composer{border-top:1px solid var(--line);padding:12px 16px calc(12px + env(safe-area-inset-bottom,0px));display:flex;gap:8px;align-items:flex-end}
+.composer textarea{flex:1;min-width:0;resize:none;background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:9px 11px;line-height:1.4;max-height:120px}
+kbd{font-family:var(--mono);font-size:10.5px;border:1px solid var(--line);border-radius:4px;padding:0 4px;color:var(--faint)}
+.toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--fg);color:var(--bg);padding:8px 14px;border-radius:10px;font-weight:500;z-index:50;display:flex;gap:12px;align-items:center;max-width:calc(100% - 32px)}
+.toast button{background:none;border:0;color:inherit;font-weight:700;text-decoration:underline;padding:0}
+.scrim{display:none}
+.onlysm{display:none}
+
+@media (max-width:1180px){
+  .app{grid-template-columns:216px minmax(0,1fr)}
+  .agent{position:fixed;inset:0 0 0 auto;width:min(400px,100%);z-index:30;transform:translateX(100%);transition:transform .2s;padding-top:env(safe-area-inset-top,0px)}
+  .app.agent-open .agent{transform:none;box-shadow:-20px 0 60px #0005}
+  .app.agent-open .scrim,.app.nav-open .scrim{display:block;position:fixed;inset:0;background:#0006;z-index:20}
+  .topbar{display:flex}
+  .onlysm{display:inline-flex}
+}
+@media (max-width:820px){
+  .app{grid-template-columns:minmax(0,1fr)}
+  .nav{position:fixed;inset:0 auto 0 0;width:240px;z-index:30;transform:translateX(-100%);transition:transform .2s;padding-top:env(safe-area-inset-top,0px)}
+  .app.nav-open .nav{transform:none}
+  .kpis{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .grid2,.grid2.even{grid-template-columns:minmax(0,1fr)}
+  h1{font-size:22px}
+  .item{flex-wrap:wrap} .item .acts{width:100%;justify-content:flex-start}
+}
+@media (min-width:821px){ #navBtn{display:none} }
+@media (prefers-reduced-motion:reduce){ *{animation:none!important;transition:none!important} }
+</style>
+</head>
+<body>
+
+<div class="app" id="app">
+  <nav class="nav" aria-label="Modules">
+    <div class="brand"><span class="mark"><i></i></span><div><b>SnapFlow</b><small id="tenantName">Brightline Portraits · sample data</small></div></div>
+    <div class="navlist" id="navlist"></div>
+    <div class="navfoot">
+      <label class="label" for="role">Signed in as</label>
+      <select id="role"></select>
+      <button class="linkbtn" data-act="reset">Reset sample data</button>
+    </div>
+  </nav>
+  <div class="main">
+    <div class="topbar">
+      <button class="btn sm" id="navBtn" data-act="nav">Menu</button>
+      <b id="topTitle">SnapFlow</b>
+      <button class="btn sm primary" data-act="agent">Ask SnapFlow</button>
+    </div>
+    <main class="view" id="view"></main>
+  </div>
+  <aside class="agent" aria-label="SnapFlow assistant">
+    <header><span class="orb" id="orb"></span><h2>Operator</h2><span class="pill" id="aiStatus">Starting</span><button class="btn sm ghost onlysm" data-act="agent">Close</button></header>
+    <div class="msgs" id="msgs"></div>
+    <div class="chips" id="chips"></div>
+    <form class="composer" id="composer">
+      <textarea id="ask" rows="1" placeholder="Tell SnapFlow what to do…" aria-label="Tell SnapFlow what to do"></textarea>
+      <button class="btn primary" id="sendBtn">Send</button>
+    </form>
+  </aside>
+  <div class="scrim" data-act="closeDrawers"></div>
+</div>
+<div class="toast" id="toast" hidden></div>
+
+<script>
+/* ---------- helpers ---------- */
+const $=(s,r=document)=>r.querySelector(s);
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const money=n=>'$'+Math.round(n).toLocaleString('en-US');
+const sleep=ms=>new Promise(r=>setTimeout(r,ms));
+function wd(n){const d=new Date();d.setHours(0,0,0,0);while(d.getDay()%6===0)d.setDate(d.getDate()+1);let i=0;while(i<n){d.setDate(d.getDate()+1);if(d.getDay()%6!==0)i++}return d}
+function dayLabel(n){const d=wd(n),t=new Date();t.setHours(0,0,0,0);return (d.getTime()===t.getTime()?'Today · ':'')+d.toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'})}
+function spark(v,cls){const w=120,h=30,mx=Math.max(...v),mn=Math.min(...v),x=i=>i*(w/(v.length-1)),y=q=>h-3-((q-mn)/(mx-mn||1))*(h-8);
+  const pts=v.map((q,i)=>x(i).toFixed(1)+','+y(q).toFixed(1)).join(' ');
+  return `<svg viewBox="0 0 ${w} ${h}" preserveAspectRatio="none" aria-hidden="true"><polygon points="0,${h} ${pts} ${w},${h}" fill="var(--accent-soft)"/><polyline points="${pts}" fill="none" stroke="var(--accent)" stroke-width="1.6" vector-effect="non-scaling-stroke"/></svg>`}
+const pill=(t,c='')=>`<span class="pill ${c}">${esc(t)}</span>`;
+const bar=(p,c='')=>`<div class="bar ${c}"><i style="width:${Math.max(2,Math.min(100,p))}%"></i></div>`;
+
+/* ---------- sample data ---------- */
+function seed(){return {
+  role:'Owner',
+  autonomy:{Scheduling:'auto',Sales:'ask',Contracts:'ask',Orders:'ask',Support:'ask',Accounting:'ask'},
+  brandHue:262,
+  schools:[
+    {id:'s1',name:'Maple Grove Elementary',district:'Riverbend USD',zone:'North',students:412,sis:'PowerSchool',part:63,health:91,gear:'2 backdrops, 1 strobe kit'},
+    {id:'s2',name:'Riverbend Middle',district:'Riverbend USD',zone:'West',students:688,sis:'PowerSchool',part:41,health:58,gear:'3 backdrops, 2 strobe kits, risers'},
+    {id:'s3',name:'Cedar Ridge High',district:'Cedar Ridge ISD',zone:'South',students:1340,sis:'Infinite Campus',part:49,health:77,gear:'4 backdrops, 3 strobe kits, risers'},
+    {id:'s4',name:'Oakmont Elementary',district:'Cedar Ridge ISD',zone:'North',students:356,sis:'Infinite Campus',part:66,health:88,gear:'2 backdrops, 1 strobe kit'},
+    {id:'s5',name:'Lakeview K-8',district:'Lakeview Schools',zone:'East',students:540,sis:'Skyward',part:57,health:82,gear:'2 backdrops, 2 strobe kits'},
+    {id:'s6',name:'Pioneer High',district:'Lakeview Schools',zone:'North',students:1120,sis:'Skyward',part:52,health:64,gear:'4 backdrops, 3 strobe kits'},
+    {id:'s7',name:'Sunnyside Elementary',district:'Sunnyside Charter',zone:'East',students:298,sis:'Clever',part:0,health:70,gear:'Not set'},
+    {id:'s8',name:'Westfield Middle',district:'Riverbend USD',zone:'West',students:610,sis:'PowerSchool',part:55,health:80,gear:'3 backdrops, 2 strobe kits'}],
+  crew:[
+    {id:'p1',name:'Dana R.',zone:'North',pay:'Hourly',off:[]},{id:'p2',name:'Marcus T.',zone:'East',pay:'Day rate',off:[]},
+    {id:'p3',name:'Priya S.',zone:'South',pay:'Salary',off:[]},{id:'p4',name:'Jordan K.',zone:'North',pay:'Day rate',off:[]},
+    {id:'p5',name:'Elena V.',zone:'West',pay:'Hourly',off:[]},{id:'p6',name:'Sam O.',zone:'East',pay:'Hourly',off:[2]}],
+  events:[
+    {id:'e1',school:'s1',type:'Fall portrait retakes',day:0,students:86,crew:'p1',status:'On site · GPS 7:42 AM'},
+    {id:'e2',school:'s3',type:'Winter sports',day:0,students:140,crew:'p3',status:'Briefing opened'},
+    {id:'e3',school:'s5',type:'Yearbook candids',day:0,students:60,crew:'p2',status:'Complete · 214 frames'},
+    {id:'e4',school:'s4',type:'Fall portrait retakes',day:1,students:74,crew:null,status:'Needs photographer'},
+    {id:'e5',school:'s6',type:'Senior portrait makeups',day:1,students:38,crew:'p4',status:'Briefing sent'},
+    {id:'e6',school:'s8',type:'Winter sports',day:2,students:110,crew:null,status:'Needs photographer'},
+    {id:'e7',school:'s7',type:'Fall portrait retakes',day:3,students:52,crew:null,status:'Needs photographer'},
+    {id:'e8',school:'s2',type:'Band and choir groups',day:3,students:180,crew:'p5',status:'Briefing sent'},
+    {id:'e9',school:'s3',type:'Club photos',day:4,students:95,crew:'p3',status:'Scheduled'}],
+  deals:[
+    {id:'d1',name:'Northgate ISD',what:'6 schools · fall + spring',stage:'Proposal',value:84000,score:88,rep:'You',next:'Follow up on proposal sent 6 days ago'},
+    {id:'d2',name:'St. Brendan Academy',what:'K-8 · portraits + yearbook',stage:'Negotiation',value:19500,score:81,rep:'You',next:'Answer commission question'},
+    {id:'d3',name:'Harbor Point Charter',what:'2 campuses',stage:'Contacted',value:27000,score:64,rep:'Alex M.',next:'Book discovery call'},
+    {id:'d4',name:'Elm Street Preschool',what:'Spring portraits',stage:'Lead',value:4200,score:42,rep:'Alex M.',next:'Qualify enrollment size'},
+    {id:'d5',name:'Cedar Ridge ISD — middle schools',what:'3 schools · expansion',stage:'Proposal',value:46000,score:74,rep:'You',next:'Send references from Cedar Ridge High'},
+    {id:'d6',name:'Lakeview Athletics Boosters',what:'Sports + banners',stage:'Lead',value:9800,score:57,rep:'Alex M.',next:'Intro email'},
+    {id:'d7',name:'Sunnyside Charter',what:'New school · 3-year term',stage:'Won',value:22400,score:96,rep:'You',next:'Contract out for signature'}],
+  contracts:[
+    {id:'c1',school:'s7',title:'Sunnyside Elementary · 3-year service agreement',value:22400,step:2,note:'Viewed by principal yesterday at 4:12 PM',expires:null},
+    {id:'c2',school:'s6',title:'Pioneer High · renewal',value:61000,step:0,note:'Current term ends in 38 days',expires:38},
+    {id:'c3',school:'s2',title:'Riverbend Middle · sports addendum',value:8600,step:1,note:'Sent 3 days ago, not opened',expires:null},
+    {id:'c4',school:'s1',title:'Maple Grove Elementary · service agreement',value:18900,step:3,note:'Signed Aug 4 · term through 2028',expires:620},
+    {id:'c5',school:'s3',title:'Cedar Ridge High · service agreement',value:74500,step:3,note:'Signed Jul 19 · term through 2027',expires:250}],
+  cascade:null,
+  orders:[
+    {id:'o1',school:'s2',event:'Fall portraits',shot:655,viewed:402,ordered:269,lab:61,shipped:208,closes:5,lastYear:58,reminded:false},
+    {id:'o2',school:'s3',event:'Fall portraits',shot:1288,viewed:870,ordered:631,lab:140,shipped:491,closes:9,lastYear:47,reminded:false},
+    {id:'o3',school:'s1',event:'Fall portraits',shot:398,viewed:330,ordered:251,lab:12,shipped:239,closes:2,lastYear:60,reminded:true},
+    {id:'o4',school:'s6',event:'Senior portraits',shot:274,viewed:201,ordered:142,lab:99,shipped:43,closes:14,lastYear:55,reminded:false}],
+  exceptions:[
+    {id:'x1',what:'Missing image',who:'Order 48213 · Riverbend Middle',fix:'Pose 2 exists in the capture set but was not matched. Re-link by student ID and release to lab.',done:false},
+    {id:'x2',what:'Lab delay',who:'Batch 0917 · Cedar Ridge High (140 orders)',fix:'Lab reports 3 extra days. Send parents the new delivery date and credit shipping.',done:false},
+    {id:'x3',what:'Address problem',who:'Order 47755 · Maple Grove Elementary',fix:'ZIP does not match city. Ask the parent to confirm by text.',done:false}],
+  tickets:[
+    {id:'t1',subject:'When is retake day?',from:'Parent · Oakmont Elementary',pri:'Normal',sla:5,status:'Open',body:'My daughter was absent on picture day. When are retakes and do I need to sign up?',draft:'Hi! Retakes at Oakmont Elementary are next week. No sign-up is needed. Your daughter\'s teacher will send her down with her class. Her new proofs will appear in your gallery within 5 days.'},
+    {id:'t2',subject:'Wrong child in gallery',from:'Parent · Riverbend Middle',pri:'High',sla:1,status:'Open',body:'The access code on our flyer opens another student\'s photos.',draft:'I\'m sorry about that. I\'ve locked the gallery you saw and issued a new access code tied to your student\'s ID. You\'ll get it by email in a few minutes.'},
+    {id:'t3',subject:'Can we get the staff composite by Dec 1?',from:'Office manager · Lakeview K-8',pri:'Normal',sla:9,status:'Open',body:'Our board meeting is Dec 3 and we would love to have the composite on display.',draft:'Yes. The staff composite is in layout now and ships Nov 24, so it will reach you before Dec 1. I\'ll send tracking as soon as it leaves the lab.'},
+    {id:'t4',subject:'Refund for duplicate order',from:'Parent · Cedar Ridge High',pri:'Normal',sla:14,status:'Open',body:'I accidentally ordered package B twice.',draft:'No problem. I\'ve cancelled the second order and refunded it to your card. It can take 3 to 5 business days to appear.'},
+    {id:'t5',subject:'Yearbook deadline question',from:'Yearbook advisor · Pioneer High',pri:'Low',sla:22,status:'Open',body:'What is the last day to submit senior makeup portraits for the book?',draft:'Senior makeups shot next week will be delivered to your yearbook folder by Nov 25, ahead of your Dec 5 page deadline.'}],
+  invoices:[
+    {id:'i1',school:'s3',what:'Fall yearbook services',amount:12400,status:'Paid',qb:true,age:0},
+    {id:'i2',school:'s6',what:'Senior banner package',amount:2980,status:'Overdue',qb:true,age:34},
+    {id:'i3',school:'s2',what:'ID cards · 688 students',amount:1200,status:'Overdue',qb:true,age:19},
+    {id:'i4',school:'s5',what:'Staff composite',amount:640,status:'Sent',qb:false,age:6},
+    {id:'i5',school:'s8',what:'Sports team photos',amount:3150,status:'Draft',qb:false,age:0}],
+  qbSync:'6 hours ago',
+  rules:[
+    {id:'a1',name:'Scope signed → every department starts',trigger:'Contract signed',steps:6,on:true,runs:14},
+    {id:'a2',name:'Gallery closing → remind families who have not ordered',trigger:'5 days before close',steps:2,on:true,runs:41},
+    {id:'a3',name:'Shoot complete → upload check and proof release',trigger:'GPS check-out',steps:4,on:true,runs:63},
+    {id:'a4',name:'Ticket close → CSAT survey',trigger:'Ticket resolved',steps:1,on:true,runs:212},
+    {id:'a5',name:'Invoice 15 days late → polite nudge',trigger:'Invoice overdue',steps:2,on:false,runs:0},
+    {id:'a6',name:'Renewal 60 days out → draft renewal for review',trigger:'Contract term',steps:3,on:true,runs:5}],
+  queue:[
+    {id:'q1',area:'Scheduling',title:'Assign Dana R. to Oakmont Elementary retakes',why:'North zone, free that day, and she shot Oakmont in September so she knows the gym setup.',actions:[{op:'assign',event:'e4',photographer:'p1'}]},
+    {id:'q2',area:'Orders',title:'Remind 386 Riverbend Middle families who have not ordered',why:'Gallery closes in 5 days. Participation is 41% against 58% last fall.',actions:[{op:'send_reminder',order:'o1'}]},
+    {id:'q3',area:'Support',title:'Send 3 drafted replies about retakes, a composite and a refund',why:'All three match answers you have approved before. The wrong-gallery ticket is held for you.',actions:[{op:'reply_ticket',ticket:'t1'},{op:'reply_ticket',ticket:'t3'},{op:'reply_ticket',ticket:'t4'}]},
+    {id:'q4',area:'Accounting',title:'Chase 2 overdue invoices worth $4,180',why:'Pioneer High is 34 days late and Riverbend Middle 19. Both paid within a week of a reminder last year.',actions:[{op:'chase_invoice',invoice:'i2'},{op:'chase_invoice',invoice:'i3'}]},
+    {id:'q5',area:'Contracts',title:'Send the Pioneer High renewal',why:'Term ends in 38 days. Draft keeps last year\'s pricing and adds the sports addendum they asked about.',actions:[{op:'send_contract',contract:'c2'}]}],
+  overnight:['Synced 1,340 student records from Infinite Campus for Cedar Ridge High','Released proofs for Lakeview K-8 yearbook candids after the upload check passed','Sent briefing packets to Jordan K. and Elena V. for next week','Matched 212 gotPhoto orders to students and routed them to the lab','Closed 4 tickets answered from the knowledge base and sent CSAT surveys'],
+  tenants:[{name:'Brightline Portraits',tier:'Pro',schools:8,seats:11,mrr:999},{name:'Northwoods School Photo',tier:'Growth',schools:64,seats:12,mrr:499},{name:'Tri-County Portrait Co.',tier:'Starter',schools:19,seats:4,mrr:199},{name:'Gulf Coast Studios',tier:'Enterprise',schools:412,seats:58,mrr:4200}],
+  flags:{'Capture: 3-pose workflow':true,'Parent portal':true,'QuickBooks Desktop sync':false,'Custom report builder':true},
+  capture:{idx:0,shots:{}},
+  log:[]
+}}
+const ROSTER=['Ava Bennett','Noah Castillo','Mia Dawson','Leo Ferreira','Zoe Hartman','Eli Nakamura','Ruby Okafor','Theo Pham'];
+const FLAGS={'1-1':'Eyes closed','3-0':'Glare on glasses','6-2':'Head turned'};
+const DEPTS=[['Scheduling','Assign a photographer and start the briefing'],['Marketing','Build the parent email and text campaign'],['Accounting','Create the customer in QuickBooks'],['Roster sync','Start the student roster sync from the SIS'],['Fulfillment','Set up the lab account and delivery address'],['Support','Create the school profile in the helpdesk']];
+const STAGES=['Lead','Contacted','Proposal','Negotiation','Won'];
+const CSTEPS=['Draft','Sent','Viewed','Signed'];
+
+/* ---------- state ---------- */
+let S=seed(), chat=[], view='briefing', busy=false, undoSnap=null, sel={school:'s2',ticket:'t2'}, sample=null, aiMode='starting', ctl=null;
+const KEY='snapflow-v1';
+try{const raw=localStorage.getItem(KEY);if(raw){const p=JSON.parse(raw);if(p&&p.schools&&p.queue)S=p}}catch(e){}
+const save=()=>{try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}};
+const by=(list,id)=>S[list].find(x=>x.id===id);
+const school=id=>by('schools',id)||{name:'Unknown school',zone:''};
+const crewName=id=>id?(by('crew',id)||{}).name||'Unknown':'Unassigned';
+function suggest(ev){const z=school(ev.school).zone;const free=S.crew.filter(p=>!p.off.includes(ev.day)&&!S.events.some(e=>e.day===ev.day&&e.crew===p.id));
+  const same=free.find(p=>p.zone===z);const pick=same||free.sort((a,b)=>load(a.id)-load(b.id))[0];
+  return pick?{p:pick,why:same?`${z} zone and free that day`:`free that day with the lightest week (${load(pick.id)} shoots)`}:null}
+const load=id=>S.events.filter(e=>e.crew===id).length;
+const partOf=o=>Math.round(o.ordered/o.shot*100);
+
+/* ---------- roles ---------- */
+const NAV=[['Today',[['briefing','Briefing']]],['Grow',[['pipeline','Pipeline'],['contracts','Contracts']]],['Operate',[['schools','Schools'],['schedule','Schedule'],['capture','Capture']]],['Deliver',[['orders','Orders'],['support','Support'],['parents','Parent portal']]],['Run the business',[['accounting','Accounting'],['analytics','Analytics'],['automations','Automations']]],['Platform',[['admin','Tenants'],['activity','Activity']]]];
+const ACCESS={Owner:null,Admin:['briefing','pipeline','contracts','schools','schedule','capture','orders','support','parents','accounting','analytics','automations','activity'],'Sales rep':['briefing','pipeline','contracts','schools','analytics','activity'],Photographer:['briefing','schools','schedule','capture','activity'],Support:['briefing','schools','orders','support','parents','analytics','activity'],Accounting:['briefing','schools','orders','accounting','analytics','activity']};
+const can=v=>!ACCESS[S.role]||ACCESS[S.role].includes(v);
+const TITLES=Object.fromEntries(NAV.flatMap(g=>g[1]));
+
+/* ---------- operations: the one vocabulary the agent, the buttons and Claude all use ---------- */
+const OPS={
+  go:{area:'',risk:'none',label:a=>`Open ${TITLES[a.view]||a.view}`,run:a=>{if(TITLES[a.view]&&can(a.view)){location.hash=a.view;return 'Opened'}throw new Error('That screen is not available for this role')}},
+  assign:{area:'Scheduling',risk:'internal',label:a=>`Assign ${crewName(a.photographer)} to ${evName(a.event)}`,run:a=>{const e=by('events',a.event),p=by('crew',a.photographer);if(!e||!p)throw new Error('Shoot or photographer not found');e.crew=p.id;e.status='Briefing sent';return `Briefing packet sent to ${p.name}`}},
+  auto_schedule:{area:'Scheduling',risk:'internal',label:()=>'Assign every open shoot to the best available photographer',run:()=>{let n=0;S.events.filter(e=>!e.crew).forEach(e=>{const s=suggest(e);if(s){e.crew=s.p.id;e.status='Briefing sent';n++}});return n?`${n} shoots assigned, briefings sent`:'Nothing was open'}},
+  send_contract:{area:'Contracts',risk:'outbound',label:a=>`Send ${cTitle(a.contract)} for e-signature`,run:a=>{const c=by('contracts',a.contract);if(!c)throw new Error('Contract not found');if(c.step>=1)return 'Already sent';c.step=1;c.note='Sent just now';return 'Sent to the principal for signature'}},
+  mark_signed:{area:'Contracts',risk:'internal',label:a=>`Record ${cTitle(a.contract)} as signed`,run:a=>{const c=by('contracts',a.contract);if(!c)throw new Error('Contract not found');c.step=3;c.note='Signed just now';S.cascade={contract:c.id,done:0};return 'Signed. Scope-to-delivery pipeline started'}},
+  notify:{area:'',risk:'none',label:a=>`${DEPTS[a.i][0]}: ${DEPTS[a.i][1]}`,run:a=>{if(S.cascade)S.cascade.done=Math.max(S.cascade.done,a.i+1);return 'Task created'}},
+  send_reminder:{area:'Orders',risk:'outbound',label:a=>{const o=by('orders',a.order);return o?`Email and text ${o.shot-o.ordered} ${school(o.school).name} families who have not ordered`:'Send order reminder'},run:a=>{const o=by('orders',a.order);if(!o)throw new Error('Order group not found');o.reminded=true;return `${o.shot-o.ordered} reminders queued through Resend and Twilio`}},
+  reply_ticket:{area:'Support',risk:'outbound',label:a=>{const t=by('tickets',a.ticket);return `Send reply: ${t?t.subject:'ticket'}`},run:a=>{const t=by('tickets',a.ticket);if(!t)throw new Error('Ticket not found');t.status='Resolved';return 'Reply sent, CSAT survey scheduled'}},
+  resolve_exception:{area:'Orders',risk:'internal',label:a=>{const x=by('exceptions',a.exception);return `Fix ${x?x.what.toLowerCase()+' · '+x.who:'exception'}`},run:a=>{const x=by('exceptions',a.exception);if(!x)throw new Error('Exception not found');x.done=true;return 'Fixed and released'}},
+  sync_quickbooks:{area:'Accounting',risk:'internal',label:()=>'Sync invoices and payments with QuickBooks Online',run:()=>{S.invoices.forEach(i=>i.qb=true);S.qbSync='just now';return 'All invoices in sync'}},
+  chase_invoice:{area:'Accounting',risk:'outbound',label:a=>{const i=by('invoices',a.invoice);return i?`Send payment reminder to ${school(i.school).name} (${money(i.amount)})`:'Send payment reminder'},run:a=>{const i=by('invoices',a.invoice);if(!i)throw new Error('Invoice not found');i.status='Reminder sent';return 'Reminder sent with pay link'}},
+  advance_deal:{area:'Sales',risk:'internal',label:a=>{const d=by('deals',a.deal);return d?`Move ${d.name} to ${STAGES[Math.min(4,STAGES.indexOf(d.stage)+1)]}`:'Advance deal'},run:a=>{const d=by('deals',a.deal);if(!d)throw new Error('Deal not found');d.stage=STAGES[Math.min(4,STAGES.indexOf(d.stage)+1)];return 'Stage updated'}},
+  send_followup:{area:'Sales',risk:'outbound',label:a=>{const d=by('deals',a.deal);return `Send follow-up email to ${d?d.name:'prospect'}`},run:a=>{const d=by('deals',a.deal);if(!d)throw new Error('Deal not found');d.next='Follow-up sent today. Check back in 3 days';return 'Follow-up sent from your Gmail'}},
+  toggle_automation:{area:'',risk:'internal',label:a=>{const r=by('rules',a.automation);return `Turn ${a.on?'on':'off'}: ${r?r.name:'automation'}`},run:a=>{const r=by('rules',a.automation);if(!r)throw new Error('Automation not found');r.on=!!a.on;return r.on?'Now running':'Paused'}},
+  set_autonomy:{area:'',risk:'internal',label:a=>`Set ${a.area} to ${LEVELS[a.level]||a.level}`,run:a=>{if(!(a.area in S.autonomy)||!LEVELS[a.level])throw new Error('Unknown area or level');S.autonomy[a.area]=a.level;return 'Saved'}},
+  approve:{area:'',risk:'internal',label:a=>'Approve',run:()=>'Approved'}
+};
+const LEVELS={suggest:'Suggest only',ask:'Ask before sending',auto:'Run on its own'};
+const evName=id=>{const e=by('events',id);return e?`${school(e.school).name} ${e.type.toLowerCase()}`:'shoot'};
+const cTitle=id=>{const c=by('contracts',id);return c?c.title:'contract'};
+
+function expand(actions){const out=[];for(const a of actions||[]){if(!a||!OPS[a.op])continue;
+  if(a.op==='approve'){const q=by('queue',a.item);if(q){out.push(...expand(q.actions).map(x=>({...x,_q:q.id})))}continue}
+  out.push(a);if(a.op==='mark_signed')DEPTS.forEach((_,i)=>out.push({op:'notify',i}))}return out}
+function needsOK(a){const o=OPS[a.op];if(o.risk==='none')return false;const lvl=S.autonomy[o.area]||'ask';return lvl==='suggest'?true:lvl==='ask'?o.risk==='outbound':false}
+
+/* ---------- plans ---------- */
+let planSeq=0;
+function propose(say,actions,opts={}){
+  const steps=expand(actions).map(a=>({a,label:OPS[a.op].label(a),st:'todo',note:''}));
+  const m={role:'ai',text:say||''};
+  if(steps.length){m.plan={id:++planSeq,steps,status:'proposed'};chat.push(m);renderChat();
+    if(opts.force||!steps.some(s=>needsOK(s.a)))runPlan(m.plan)}
+  else{chat.push(m);renderChat()}
+}
+async function runPlan(plan){
+  if(plan.status!=='proposed'||busy&&plan.status==='running')return;
+  plan.status='running';undoSnap=JSON.stringify(S);busyOn(true);
+  for(const s of plan.steps){s.st='run';renderChat();await sleep(s.a.op==='notify'?260:420);
+    try{s.note=OPS[s.a.op].run(s.a);s.st='done';if(s.a.op!=='go'&&s.a.op!=='notify')S.log.unshift({t:Date.now(),who:'SnapFlow',text:s.label,note:s.note});
+      if(s.a._q)S.queue=S.queue.filter(q=>q.id!==s.a._q)}
+    catch(e){s.st='skip';s.note=e.message}
+    render();renderChat()}
+  plan.status='done';busyOn(false);save();render();renderChat();
+  const n=plan.steps.filter(s=>s.st==='done'&&s.a.op!=='go'&&s.a.op!=='notify').length;
+  if(n)toast(`${n} ${n===1?'action':'actions'} done`,true);
+}
+function doNow(actions,userText){if(busy)return;if(userText)chat.push({role:'user',text:userText});propose('',actions,{force:true});openAgentIfRoom()}
+function undo(){if(!undoSnap)return;S=JSON.parse(undoSnap);undoSnap=null;S.log.unshift({t:Date.now(),who:'You',text:'Undid the last run',note:''});save();render();toast('Undone')}
+
+/* ---------- views ---------- */
+const head=(t,sub,right='')=>`<div class="head"><div><h1>${esc(t)}</h1><p>${sub}</p></div><div class="row">${right}</div></div>`;
+const insight=(text,btn='')=>`<div class="insight"><span class="dot"></span><p>${text}</p>${btn}</div>`;
+const askBtn=(label,q)=>`<button class="btn sm" data-act="say" data-q="${esc(q)}">${esc(label)}</button>`;
+
+const V={};
+V.briefing=()=>{
+  const today=S.events.filter(e=>e.day===0),open=S.events.filter(e=>!e.crew),tk=S.tickets.filter(t=>t.status==='Open'),q=S.queue.filter(x=>areaVisible(x.area));
+  const risks=[];S.orders.filter(o=>partOf(o)<o.lastYear-5).forEach(o=>risks.push([`${school(o.school).name} participation is ${partOf(o)}%`,`Last fall it was ${o.lastYear}%. Gallery closes in ${o.closes} days.`,'orders']));
+  tk.filter(t=>t.sla<=2).forEach(t=>risks.push([`Ticket due in ${t.sla}h: ${t.subject}`,t.from,'support']));
+  S.contracts.filter(c=>c.expires&&c.expires<60&&c.step<3).forEach(c=>risks.push([`${school(c.school).name} contract ends in ${c.expires} days`,'Renewal not sent yet','contracts']));
+  const hr=new Date().getHours();
+  return head(`Good ${hr<12?'morning':hr<18?'afternoon':'evening'}. Here is picture day.`,`${today.length} shoots today, ${q.length} ${q.length===1?'thing needs':'things need'} your OK, ${risks.length} at risk. Everything else is handled.`,askBtn('Walk me through it','What needs my attention today?'))+
+  `<div class="kpis">
+    <div class="card kpi"><span class="label">Fall season revenue</span><b>$487k</b><span class="muted">87% of $560k target</span>${spark([38,96,180,262,340,410,452,487])}</div>
+    <div class="card kpi"><span class="label">Participation</span><b>54%</b><span class="muted">up 3 pts on last fall</span>${spark([44,47,49,50,52,51,53,54])}</div>
+    <div class="card kpi"><span class="label">Open shoots</span><b>${open.length}</b><span class="muted">${open.length?'need a photographer':'every shoot is staffed'}</span>${spark([6,5,5,4,4,3,3,Math.max(open.length,0)])}</div>
+    <div class="card kpi"><span class="label">Open tickets</span><b>${tk.length}</b><span class="muted">${tk.filter(t=>t.sla<=2).length} close to SLA</span>${spark([11,9,12,8,9,7,6,tk.length])}</div>
+  </div>
+  <div class="grid2">
+    <div class="stack">
+      <div class="card flush"><div class="item"><div class="body"><h2>Needs your OK</h2><small>Prepared and ready. Nothing here goes out until you say so.</small></div>${q.length>1?`<div class="acts"><button class="btn sm" data-act="approveAll">Approve all ${q.length}</button></div>`:''}</div>
+        ${q.map(x=>`<div class="item"><div class="body">${pill(x.area,'ai')} <b>${esc(x.title)}</b><small>${esc(x.why)}</small></div><div class="acts"><button class="btn sm primary" data-act="approve" data-id="${x.id}">Approve</button><button class="btn sm ghost" data-act="dismiss" data-id="${x.id}">Dismiss</button></div></div>`).join('')||'<div class="empty">Queue is clear. New proposals land here as they come up.</div>'}
+      </div>
+      <div class="card flush"><div class="item"><div class="body"><h2>At risk</h2></div></div>
+        ${risks.map(r=>`<div class="item"><div class="body"><b>${esc(r[0])}</b><small>${esc(r[1])}</small></div><div class="acts"><a class="btn sm" href="#${r[2]}">Open</a></div></div>`).join('')||'<div class="empty">Nothing is trending the wrong way.</div>'}
+      </div>
+    </div>
+    <div class="stack">
+      <div class="card flush"><div class="item"><div class="body"><h2>Today's shoots</h2></div></div>
+        ${today.map(e=>`<div class="item"><div class="body"><b>${esc(school(e.school).name)}</b><small>${esc(e.type)} · ${e.students} students · ${esc(crewName(e.crew))}</small></div>${pill(e.status,e.status.startsWith('Complete')||e.status.startsWith('On site')?'ok':'')}</div>`).join('')}
+      </div>
+      <div class="card"><span class="label">Handled overnight</span><div class="stack" style="gap:8px">${S.overnight.map(t=>`<div class="row" style="align-items:flex-start;flex-wrap:nowrap"><span class="dot" style="margin-top:7px;background:var(--ok)"></span><span>${esc(t)}</span></div>`).join('')}</div></div>
+    </div>
+  </div>`};
+const areaVisible=a=>({Scheduling:'schedule',Orders:'orders',Support:'support',Accounting:'accounting',Contracts:'contracts',Sales:'pipeline'}[a]?can({Scheduling:'schedule',Orders:'orders',Support:'support',Accounting:'accounting',Contracts:'contracts',Sales:'pipeline'}[a]):true);
+
+V.pipeline=()=>{const top=[...S.deals].filter(d=>d.stage!=='Won').sort((a,b)=>b.score*b.value-a.score*a.value)[0];
+  return head('Pipeline','Leads scored from fit, engagement and district size. The next step is drafted for every deal.',`<span class="pill num">${money(S.deals.filter(d=>d.stage!=='Won').reduce((s,d)=>s+d.value,0))} open</span>`)+
+  (top?insight(`<b>${esc(top.name)}</b> is the deal to work today: ${money(top.value)} at a ${top.score} score. ${esc(top.next)}.`,`<button class="btn sm primary" data-act="op" data-op="send_followup" data-deal="${top.id}">Send follow-up</button>`):'')+
+  `<div class="kan">${STAGES.map(st=>{const ds=S.deals.filter(d=>d.stage===st);return `<div class="col"><div><span>${st}</span><span class="num">${ds.length}</span></div>${ds.map(d=>`<div class="deal"><div class="row" style="justify-content:space-between"><b>${esc(d.name)}</b>${pill(d.score,d.score>=80?'ok':d.score>=60?'warn':'')}</div><span class="muted">${esc(d.what)} · ${esc(d.rep)}</span><b class="num">${money(d.value)}</b><span class="muted" style="font-size:12.5px">${esc(d.next)}</span>${st!=='Won'?`<div class="row"><button class="btn sm" data-act="op" data-op="send_followup" data-deal="${d.id}">Follow up</button><button class="btn sm ghost" data-act="op" data-op="advance_deal" data-deal="${d.id}">Advance</button></div>`:''}</div>`).join('')||'<span class="faint">Empty</span>'}</div>`}).join('')}</div>`};
+
+V.contracts=()=>{const cs=S.cascade;return head('Contracts','Scope, deliverables and e-signature. A signature starts every department at once.')+
+  insight(`Sunnyside Elementary viewed their agreement yesterday. When it is signed, six departments get their tasks without anyone sending an email.`,`<button class="btn sm primary" data-act="op" data-op="mark_signed" data-contract="c1">Record signature</button>`)+
+  `<div class="card"><div class="sechead"><h2>Scope-to-delivery</h2>${cs?pill(`${cs.done} of 6 started · ${school(by('contracts',cs.contract).school).name}`,cs.done===6?'ok':'ai'):pill('Waiting for a signature')}</div>
+    <div class="flow"><div class="node trigger"><b>Contract signed</b>Trigger</div>${DEPTS.map((d,i)=>`<div class="node ${cs&&cs.done>i?'done':''}"><b>${d[0]}</b>${d[1]}</div>`).join('')}</div></div>
+  <div class="card flush">${S.contracts.map(c=>`<div class="item"><div class="body"><b>${esc(c.title)}</b><small>${esc(c.note)} · <span class="num">${money(c.value)}</span></small><div class="steps" style="margin-top:8px;max-width:260px">${CSTEPS.map((_,i)=>`<i class="${i<=c.step?'on':''}"></i>`).join('')}</div></div><div class="acts">${pill(CSTEPS[c.step],c.step===3?'ok':'')}${c.step===0?`<button class="btn sm primary" data-act="op" data-op="send_contract" data-contract="${c.id}">Send</button>`:''}${c.step>0&&c.step<3?`<button class="btn sm" data-act="op" data-op="mark_signed" data-contract="${c.id}">Record signature</button>`:''}</div></div>`).join('')}</div>`};
+
+V.schools=()=>{const s=by('schools',sel.school)||S.schools[0];const low=[...S.schools].filter(x=>x.part>0).sort((a,b)=>a.health-b.health)[0];
+  return head('Schools','One record per school: roster, contacts, gear and how the account is doing.')+
+  insight(`<b>${esc(low.name)}</b> has the lowest health score (${low.health}). Participation is ${low.part}% and one invoice is overdue.`,askBtn('What should we do?',`What should we do about ${low.name}?`))+
+  `<div class="card flush"><div class="tablebox"><table><thead><tr><th>School</th><th>District</th><th class="r">Students</th><th>Roster source</th><th>Participation</th><th>Health</th></tr></thead><tbody>${S.schools.map(x=>`<tr class="click ${x.id===s.id?'sel':''}" data-act="pick" data-kind="school" data-id="${x.id}"><td><b>${esc(x.name)}</b></td><td class="muted">${esc(x.district)}</td><td class="r num">${x.students.toLocaleString()}</td><td>${esc(x.sis)}</td><td><div class="row" style="flex-wrap:nowrap"><span class="num" style="width:34px">${x.part?x.part+'%':'New'}</span>${bar(x.part,x.part<45?'bad':x.part<55?'warn':'ok')}</div></td><td>${pill(x.health,x.health>=80?'ok':x.health>=65?'warn':'bad')}</td></tr>`).join('')}</tbody></table></div></div>
+  <div class="card"><div class="sechead"><h2>${esc(s.name)}</h2>${pill(s.zone+' zone')}</div><div class="grid2 even"><div class="stack" style="gap:6px"><span class="label">Roster</span><span>${s.students.toLocaleString()} students from ${esc(s.sis)}, synced daily at 6:00 AM</span><span class="label" style="margin-top:8px">Equipment load-out</span><span>${esc(s.gear)}</span></div><div class="stack" style="gap:6px"><span class="label">Coming up</span>${S.events.filter(e=>e.school===s.id).map(e=>`<span>${dayLabel(e.day)} · ${esc(e.type)} · ${esc(crewName(e.crew))}</span>`).join('')||'<span class="muted">Nothing scheduled</span>'}</div></div></div>`};
+
+V.schedule=()=>{const open=S.events.filter(e=>!e.crew);const days=[...new Set(S.events.map(e=>e.day))].sort();
+  return head('Schedule','Crew assignment by zone, availability and workload. Briefing packets go out the moment a shoot is staffed.',open.length?`<button class="btn primary" data-act="op" data-op="auto_schedule">Assign all ${open.length} open shoots</button>`:pill('Fully staffed','ok'))+
+  (open.length?insight(`${open.length} shoots have no photographer. A pick is ready for each one, shown below with the reason.`):insight('Every shoot in the next week is staffed and briefed.'))+
+  `<div class="grid2"><div class="stack">${days.map(d=>`<div class="card flush"><div class="item"><div class="body"><h3>${dayLabel(d)}</h3></div></div>${S.events.filter(e=>e.day===d).map(e=>{const sg=!e.crew&&suggest(e);return `<div class="item"><div class="body"><b>${esc(school(e.school).name)}</b><small>${esc(e.type)} · ${e.students} students</small>${sg?`<small><span class="pill ai">Pick</span> ${esc(sg.p.name)}: ${esc(sg.why)}</small>`:''}</div><div class="acts">${e.crew?pill(crewName(e.crew))+pill(e.status,e.status.startsWith('Complete')||e.status.startsWith('On site')?'ok':''):sg?`<button class="btn sm primary" data-act="op" data-op="assign" data-event="${e.id}" data-photographer="${sg.p.id}">Assign ${esc(sg.p.name)}</button>`:pill('No one free','bad')}</div></div>`}).join('')}</div>`).join('')}</div>
+  <div class="card"><span class="label">Crew this week</span><div class="stack">${S.crew.map(p=>`<div><div class="row" style="justify-content:space-between"><b>${esc(p.name)}</b><span class="muted num">${load(p.id)} shoots</span></div><div class="muted" style="font-size:12.5px;margin-bottom:4px">${p.zone} zone · ${p.pay}${p.off.length?' · time off '+dayLabel(p.off[0]).replace('Today · ',''):''}</div>${bar(load(p.id)*25)}</div>`).join('')}</div></div></div>`};
+
+V.capture=()=>{const c=S.capture,i=c.idx,shots=c.shots[i]||[],name=ROSTER[i],flag=FLAGS[i+'-'+(shots.length-1)];
+  const best=Math.max(0,shots.findIndex((s,k)=>!FLAGS[i+'-'+k]));
+  const acc=S.capture.accepted||{};
+  return head('Capture','On-site capture with the roster loaded. Three poses per student, checked as they are taken.',pill('Tethered · Rm 12, Ms. Alvarez, grade 3','ok'))+
+  insight(flag?`<b>${flag}</b> on pose ${shots.length}. Take one more and SnapFlow will pick the best frame.`:shots.length===3?`Three poses captured for ${esc(name)}. Pose ${best+1} is the sharpest with eyes open.`:`Ready for ${esc(name)}. Scan the ticket barcode or press the shutter.`)+
+  `<div class="grid2"><div class="stack">
+    <div class="finder" role="img" aria-label="Camera viewfinder showing a seated portrait on a blue backdrop"><div class="body-s"></div><div class="head-s"></div><div class="face ${flag?'flag':''}"></div><span class="cnr a"></span><span class="cnr b"></span><span class="cnr c"></span><span class="cnr d"></span><span class="tag">${esc(name)} · pose ${Math.min(shots.length+1,3)}/3</span><div class="hud"><span>1/160</span><span>f/8</span><span>ISO 200</span><span>5200K</span></div></div>
+    <div class="poses">${[0,1,2].map(k=>{const f=FLAGS[i+'-'+k];return `<div class="pose ${k<shots.length?(f?'flag':acc[i]===k?'best':''):''}"><b>Pose ${k+1}</b><br>${k<shots.length?(f?esc(f):acc[i]===k?'Accepted':'Good'):'Not taken'}</div>`}).join('')}</div>
+    <div class="row" style="justify-content:center"><button class="btn primary" data-act="shoot" ${shots.length>=3?'disabled':''}>Shutter</button><button class="btn" data-act="acceptBest" ${shots.length?'':'disabled'}>Accept best and next</button><button class="btn ghost" data-act="retake" ${shots.length?'':'disabled'}>Clear poses</button></div>
+  </div>
+  <div class="card flush roster"><div class="item"><div class="body"><h3>Class roster</h3><small>${Object.keys(acc).length} of ${ROSTER.length} photographed</small></div><button class="btn sm" data-act="scan">Scan barcode</button></div>${ROSTER.map((n,k)=>`<button class="${k===i?'cur':''}" data-act="student" data-i="${k}"><span>${esc(n)}</span>${acc[k]!==undefined?pill('Pose '+(acc[k]+1),'ok'):k===i?pill('Up now','ai'):'<span class="faint">Waiting</span>'}</button>`).join('')}</div></div>`};
+
+V.orders=()=>{const ex=S.exceptions.filter(x=>!x.done);const worst=[...S.orders].sort((a,b)=>(partOf(a)-a.lastYear)-(partOf(b)-b.lastYear))[0];
+  return head('Orders','Every student from proof to doorstep, synced from gotPhoto and Candid Color and routed to the lab.')+
+  insight(`${esc(school(worst.school).name)} is ${worst.lastYear-partOf(worst)} points behind last fall with ${worst.closes} days left. ${worst.shot-worst.ordered} families have not ordered.`,worst.reminded?pill('Reminder sent','ok'):`<button class="btn sm primary" data-act="op" data-op="send_reminder" data-order="${worst.id}">Remind them</button>`)+
+  `<div class="card flush"><div class="tablebox"><table><thead><tr><th>Gallery</th><th class="r">Photographed</th><th class="r">Viewed</th><th class="r">Ordered</th><th>Participation</th><th class="r">At lab</th><th class="r">Shipped</th><th>Closes</th><th></th></tr></thead><tbody>${S.orders.map(o=>{const p=partOf(o);return `<tr><td><b>${esc(school(o.school).name)}</b><br><span class="muted">${esc(o.event)}</span></td><td class="r num">${o.shot}</td><td class="r num">${o.viewed}</td><td class="r num">${o.ordered}</td><td><div class="row" style="flex-wrap:nowrap"><span class="num" style="width:34px">${p}%</span>${bar(p,p<o.lastYear-5?'bad':p<o.lastYear?'warn':'ok')}</div><span class="faint" style="font-size:12px">last fall ${o.lastYear}%</span></td><td class="r num">${o.lab}</td><td class="r num">${o.shipped}</td><td>${pill(o.closes+' days',o.closes<=5?'warn':'')}</td><td>${o.reminded?pill('Reminded','ok'):`<button class="btn sm" data-act="op" data-op="send_reminder" data-order="${o.id}">Remind</button>`}</td></tr>`}).join('')}</tbody></table></div></div>
+  <div class="card flush"><div class="item"><div class="body"><h2>Exceptions</h2><small>Orders that cannot move on their own. A fix is proposed for each.</small></div></div>${ex.map(x=>`<div class="item"><div class="body">${pill(x.what,'warn')} <b>${esc(x.who)}</b><small>${esc(x.fix)}</small></div><div class="acts"><button class="btn sm primary" data-act="op" data-op="resolve_exception" data-exception="${x.id}">Apply fix</button></div></div>`).join('')||'<div class="empty">No exceptions. Every order is moving.</div>'}</div>`};
+
+V.support=()=>{const open=S.tickets.filter(t=>t.status==='Open');const t=by('tickets',sel.ticket)||S.tickets[0];
+  return head('Support','Replies are drafted from the knowledge base and the order record. You send, edit or take over.',open.length?askBtn('Send all safe drafts','Send all drafted replies except the high priority ones'):'')+
+  insight(open.length?`${open.length} open tickets. ${open.filter(x=>x.sla<=2).length} due within 2 hours. Drafts are ready for all of them.`:'Inbox zero. New tickets get a draft within a minute.')+
+  `<div class="grid2 even"><div class="card flush">${S.tickets.map(x=>`<div class="item" style="cursor:pointer;${x.id===t.id?'background:var(--accent-soft)':''}" data-act="pick" data-kind="ticket" data-id="${x.id}"><div class="body"><b>${esc(x.subject)}</b><small>${esc(x.from)}</small></div>${x.status==='Open'?pill(x.sla+'h left',x.sla<=2?'bad':x.sla<=6?'warn':''):pill('Resolved','ok')}</div>`).join('')}</div>
+  <div class="card stack"><div class="sechead" style="margin:0"><h2>${esc(t.subject)}</h2>${pill(t.pri+' priority',t.pri==='High'?'bad':'')}</div><p class="muted">${esc(t.from)}</p><p>${esc(t.body)}</p><span class="label">Drafted reply</span><textarea class="inp" id="draft-${t.id}" data-ticket="${t.id}" ${t.status!=='Open'?'disabled':''}>${esc(t.draft)}</textarea><div class="row">${t.status==='Open'?`<button class="btn primary" data-act="op" data-op="reply_ticket" data-ticket="${t.id}">Send reply</button>`:pill('Sent · CSAT survey scheduled','ok')}</div></div></div>`};
+
+V.parents=()=>head('Parent portal','What families see, under your brand. Order lookup, retake dates and answers without a phone call.',pill('brightlineportraits.example · white-labeled'))+
+  `<div class="grid2 even"><div class="portal"><div class="bar2">Brightline Portraits</div><div class="in"><div><h3>Find your order</h3><p class="muted">Enter the access code from your picture day flyer.</p></div><form class="field" id="lookup"><input id="code" placeholder="Try MG-4821" aria-label="Access code"><button class="btn primary">Look up</button></form><div id="lookupOut" class="muted">Sample codes: MG-4821, RB-1077</div>
+    <div><details open><summary>When is retake day?</summary><p class="muted">Maple Grove Elementary: ${dayLabel(0)}. Oakmont Elementary: ${dayLabel(1)}. Sunnyside Elementary: ${dayLabel(3)}.</p></details><details><summary>Can I change my package?</summary><p class="muted">Yes, until your order goes to the lab. Open your order and choose Change package.</p></details><details><summary>My code shows the wrong student</summary><p class="muted">Tell us here and we will lock that gallery and issue a new code within minutes.</p></details></div></div></div>
+  <div class="card stack"><h2>How it is doing</h2><div class="row" style="justify-content:space-between"><span>Questions answered without a ticket</span><b class="num">71%</b></div>${bar(71,'ok')}<div class="row" style="justify-content:space-between"><span>Orders placed through the portal</span><b class="num">1,293</b></div><div class="row" style="justify-content:space-between"><span>Average time to an answer</span><b class="num">9 sec</b></div><p class="muted">Anything the portal cannot answer becomes a ticket with a draft reply already attached.</p></div></div>`;
+
+V.accounting=()=>{const od=S.invoices.filter(i=>i.status==='Overdue'),un=S.invoices.filter(i=>!i.qb).length;const pl=[['Cedar Ridge High',74,31],['Pioneer High',61,22],['Riverbend Middle',39,9],['Maple Grove Elementary',28,12],['Lakeview K-8',33,13]];
+  return head('Accounting','Invoices, payroll and profit by school, kept in step with QuickBooks.',`<span class="pill">QuickBooks synced ${esc(S.qbSync)}</span><button class="btn" data-act="op" data-op="sync_quickbooks">Sync now</button>`)+
+  insight(od.length?`${od.length} invoices are overdue for ${money(od.reduce((s,i)=>s+i.amount,0))}. ${un?un+' invoices have not reached QuickBooks yet.':''}`:`Nothing overdue. ${un?un+' invoices have not reached QuickBooks yet.':'Books are in sync.'}`,od.length?askBtn('Chase them','Chase overdue invoices'):'')+
+  `<div class="card flush"><div class="tablebox"><table><thead><tr><th>Invoice</th><th>School</th><th class="r">Amount</th><th>Status</th><th>QuickBooks</th><th></th></tr></thead><tbody>${S.invoices.map(i=>`<tr><td><b>${esc(i.what)}</b></td><td class="muted">${esc(school(i.school).name)}</td><td class="r num">${money(i.amount)}</td><td>${pill(i.status+(i.status==='Overdue'?' · '+i.age+' days':''),i.status==='Paid'?'ok':i.status==='Overdue'?'bad':'')}</td><td>${i.qb?pill('In sync','ok'):pill('Not synced','warn')}</td><td>${i.status==='Overdue'?`<button class="btn sm" data-act="op" data-op="chase_invoice" data-invoice="${i.id}">Send reminder</button>`:''}</td></tr>`).join('')}</tbody></table></div></div>
+  <div class="grid2 even"><div class="card"><span class="label">Profit by school, fall season ($k)</span><div class="stack">${pl.map(p=>`<div><div class="row" style="justify-content:space-between"><span>${p[0]}</span><span class="num muted">${p[2]}k profit on ${p[1]}k</span></div>${bar(p[2]/p[1]*100*2,p[2]/p[1]<.3?'warn':'ok')}</div>`).join('')}</div></div>
+  <div class="card stack"><span class="label">Payroll run, period ending ${dayLabel(0).replace('Today · ','')}</span><div class="row" style="justify-content:space-between"><span>Hourly · 3 photographers</span><b class="num">$4,912</b></div><div class="row" style="justify-content:space-between"><span>Day rate · 2 photographers</span><b class="num">$3,600</b></div><div class="row" style="justify-content:space-between"><span>Salary · 1 photographer</span><b class="num">$2,150</b></div><div class="row" style="justify-content:space-between"><span>Sales commission</span><b class="num">$1,344</b></div><p class="muted">Hours come from GPS check-in and check-out. Two timesheets were adjusted for travel and are flagged for your review.</p></div></div>`};
+
+V.analytics=()=>{const m=['Aug','Sep','Oct','Nov'],last=[38,142,196,88],now=[44,168,214,61],W=560,H=220,L=40,B=28,T=12,mx=240,y=v=>T+(H-T-B)*(1-v/mx),gw=(W-L)/4,bw=34;
+  return head('Analytics','Season against season, and any question you want to ask of the numbers.')+
+  insight('Revenue is 9% ahead of last fall through October. November is behind only because retakes are a week later this year.',askBtn('Which schools are behind?','Which schools are behind last fall on participation?'))+
+  `<div class="card"><div class="sechead"><h2>Revenue by month ($k)</h2><div class="row"><span class="pill"><span class="dot" style="background:var(--faint)"></span>Last fall</span><span class="pill"><span class="dot"></span>This fall</span></div></div>
+   <div class="tablebox"><svg viewBox="0 0 ${W} ${H}" width="100%" style="min-width:420px;display:block" role="img" aria-label="Grouped bars comparing monthly revenue this fall and last fall">
+   ${[0,80,160,240].map(t=>`<line x1="${L}" x2="${W}" y1="${y(t)}" y2="${y(t)}" stroke="var(--line)" stroke-width="1"/><text x="${L-8}" y="${y(t)+4}" text-anchor="end" font-size="11" fill="var(--faint)">${t}</text>`).join('')}
+   ${m.map((mo,i)=>{const cx=L+gw*i+gw/2;return `<rect x="${cx-bw-2}" y="${y(last[i])}" width="${bw}" height="${y(0)-y(last[i])}" rx="3" fill="var(--faint)" opacity=".45"/><rect x="${cx+2}" y="${y(now[i])}" width="${bw}" height="${y(0)-y(now[i])}" rx="3" fill="var(--accent)"/><text x="${cx+2+bw/2}" y="${y(now[i])-5}" text-anchor="middle" font-size="11" fill="var(--fg)">${now[i]}</text><text x="${cx}" y="${H-8}" text-anchor="middle" font-size="12" fill="var(--muted)">${mo}${i===3?' (to date)':''}</text>`}).join('')}</svg></div></div>
+  <div class="card flush"><div class="tablebox"><table><thead><tr><th>School</th><th>This fall</th><th>Last fall</th><th>Change</th></tr></thead><tbody>${S.orders.map(o=>{const p=partOf(o),d=p-o.lastYear;return `<tr><td><b>${esc(school(o.school).name)}</b></td><td class="num">${p}%</td><td class="num muted">${o.lastYear}%</td><td>${pill((d>0?'+':'')+d+' pts',d>=0?'ok':d<-5?'bad':'warn')}</td></tr>`}).join('')}</tbody></table></div></div>`};
+
+V.automations=()=>head('Automations','What runs without you, and how much say you keep in each part of the business.')+
+  `<div class="card"><div class="sechead"><h2>How much SnapFlow does on its own</h2></div><div class="stack">${Object.keys(S.autonomy).map(a=>`<div class="row" style="justify-content:space-between"><div><b>${a}</b><div class="muted" style="font-size:12.5px">${{suggest:'Shows a plan and waits, even for internal changes.',ask:'Handles internal work. Asks before anything goes to a school or parent.',auto:'Acts and reports back. Everything is logged and can be undone.'}[S.autonomy[a]]}</div></div><div class="seg" role="group" aria-label="${a} autonomy">${Object.keys(LEVELS).map(l=>`<button aria-pressed="${S.autonomy[a]===l}" data-act="autonomy" data-area="${a}" data-level="${l}">${LEVELS[l]}</button>`).join('')}</div></div>`).join('')}</div></div>
+  <div class="card flush">${S.rules.map(r=>`<div class="item"><div class="body"><b>${esc(r.name)}</b><small>When: ${esc(r.trigger)} · ${r.steps} ${r.steps===1?'step':'steps'} · ran ${r.runs} times this season</small></div><button class="switch" role="switch" aria-checked="${r.on}" aria-label="${esc(r.name)}" data-act="rule" data-id="${r.id}"></button></div>`).join('')}</div>`;
+
+V.admin=()=>head('Tenants','The SaaS side: who runs on SnapFlow, what they have turned on and how it looks under their brand.')+
+  `<div class="card flush"><div class="tablebox"><table><thead><tr><th>Company</th><th>Plan</th><th class="r">Schools</th><th class="r">Seats</th><th class="r">MRR</th></tr></thead><tbody>${S.tenants.map(t=>`<tr><td><b>${esc(t.name)}</b></td><td>${pill(t.tier,t.tier==='Enterprise'?'ai':'')}</td><td class="r num">${t.schools}</td><td class="r num">${t.seats}</td><td class="r num">${money(t.mrr)}</td></tr>`).join('')}</tbody></table></div></div>
+  <div class="grid2 even"><div class="card stack"><span class="label">Feature flags · Brightline Portraits</span>${Object.keys(S.flags).map(f=>`<div class="row" style="justify-content:space-between"><span>${esc(f)}</span><button class="switch" role="switch" aria-checked="${S.flags[f]}" aria-label="${esc(f)}" data-act="flag" data-f="${esc(f)}"></button></div>`).join('')}</div>
+  <div class="card stack"><span class="label">White label</span><p class="muted">Pick a brand color. The whole app and the parent portal follow it.</p><div class="row">${[[262,'Iris'],[205,'Lake'],[160,'Spruce'],[25,'Clay'],[340,'Berry']].map(h=>`<button class="btn sm" data-act="hue" data-h="${h[0]}" style="${S.brandHue==h[0]?'border-color:var(--accent)':''}"><span class="dot" style="background:oklch(.62 .16 ${h[0]})"></span> ${h[1]}</button>`).join('')}</div></div></div>`;
+
+V.activity=()=>head('Activity','Everything SnapFlow did on your behalf, newest first.',undoSnap?'<button class="btn" data-act="undo">Undo last run</button>':'')+
+  `<div class="card flush">${S.log.map(l=>`<div class="item"><div class="body"><b>${esc(l.text)}</b><small>${esc(l.note||'')}</small></div><span class="faint num">${esc(l.who)} · ${new Date(l.t).toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'})}</span></div>`).join('')||'<div class="empty">Nothing yet. Approve something on the briefing or ask the operator to do a task.</div>'}</div>`;
+
+/* ---------- render ---------- */
+function renderNav(){
+  $('#navlist').innerHTML=NAV.map(g=>{const items=g[1].filter(i=>can(i[0]));if(!items.length)return '';return `<span class="label">${g[0]}</span>`+items.map(i=>{const n={briefing:S.queue.filter(x=>areaVisible(x.area)).length,schedule:S.events.filter(e=>!e.crew).length,support:S.tickets.filter(t=>t.status==='Open').length,orders:S.exceptions.filter(x=>!x.done).length}[i[0]];return `<a href="#${i[0]}" ${i[0]===view?'aria-current="page"':''}>${i[1]}${n?`<span class="badge num">${n}</span>`:''}</a>`}).join('')}).join('');
+  $('#role').innerHTML=Object.keys(ACCESS).map(r=>`<option ${r===S.role?'selected':''}>${r}</option>`).join('');
+  $('#topTitle').textContent=TITLES[view];
+}
+function render(){
+  document.documentElement.style.setProperty('--hue',S.brandHue);
+  if(!can(view))view='briefing';
+  renderNav();
+  const el=$('#view'),top=el.scrollTop,ae=document.activeElement,keep=ae&&ae.id&&el.contains(ae)?{id:ae.id,v:ae.value,s:ae.selectionStart}:null;
+  el.innerHTML=`<div class="wrap">${V[view]()}</div>`;el.scrollTop=top;
+  if(keep){const n=document.getElementById(keep.id);if(n){n.value=keep.v;n.focus();try{n.setSelectionRange(keep.s,keep.s)}catch(e){}}}
+  renderChips();
+}
+function renderChat(){
+  const el=$('#msgs');
+  el.innerHTML=(chat.length?'':`<div class="msg ai"><b>I run the busywork so you can run picture day.</b>\nTell me what you want done in plain words. I show the plan, ask before anything goes out to a school or parent, and log every step so you can undo it.</div>`)+chat.map(m=>{
+    if(m.role==='user')return `<div class="msg user">${esc(m.text)}</div>`;
+    let h=m.text?`<div class="msg ai">${esc(m.text)}</div>`:'';
+    if(m.plan){const p=m.plan;h+=`<div class="plan"><div class="ph"><span class="label">Plan · ${p.steps.length} ${p.steps.length===1?'step':'steps'}</span>${pill({proposed:'Waiting for you',running:'Running',done:'Done',cancelled:'Cancelled'}[p.status],p.status==='done'?'ok':p.status==='proposed'?'warn':'ai')}</div><ol>${p.steps.map(s=>`<li class="${s.st}"><span class="st"></span><span>${esc(s.label)}${s.note?`<small>${esc(s.note)}</small>`:''}</span></li>`).join('')}</ol>${p.status==='proposed'?`<div class="pf"><button class="btn sm primary" data-act="runPlan" data-id="${p.id}">Run plan</button><button class="btn sm ghost" data-act="cancelPlan" data-id="${p.id}">Cancel</button></div>`:''}</div>`}
+    return h}).join('')+(busy==='think'?'<div class="msg ai muted">Thinking…</div>':'');
+  el.scrollTop=el.scrollHeight;
+}
+const CHIPS={briefing:['What needs my attention today?','Approve everything that stays internal','Who is shooting today?'],pipeline:['Which deal should I work first?','Send a follow-up to Northgate ISD'],contracts:['Sunnyside signed. Kick off onboarding','Which contracts end soon?'],schools:['Which school needs attention?','Open the schedule'],schedule:['Assign all open shoots','Who is free on the next open day?'],capture:['How does the 3-pose check work?'],orders:['Remind Riverbend families who have not ordered','Fix the order exceptions'],support:['Send all drafted replies','Which tickets are close to SLA?'],parents:['When are retakes?'],accounting:['Chase overdue invoices','Sync QuickBooks'],analytics:['Which schools are behind last fall?'],automations:['Let Support run on its own','Turn on the late invoice nudge'],admin:['Open the briefing'],activity:['What did you do today?']};
+function renderChips(){$('#chips').innerHTML=(CHIPS[view]||[]).map(c=>`<button class="chip" data-act="say" data-q="${esc(c)}">${esc(c)}</button>`).join('')}
+function busyOn(b){busy=b;$('#orb').classList.toggle('busy',!!b);$('#sendBtn').textContent=b==='think'?'Stop':'Send';$('#sendBtn').disabled=b===true}
+let toastT;function toast(t,withUndo){const el=$('#toast');el.innerHTML=esc(t)+(withUndo&&undoSnap?' <button data-act="undo">Undo</button>':'');el.hidden=false;clearTimeout(toastT);toastT=setTimeout(()=>el.hidden=true,5000)}
+function setStatus(){const el=$('#aiStatus');el.textContent={starting:'Starting',claude:'Claude connected',local:'Built-in commands'}[aiMode];el.className='pill '+(aiMode==='claude'?'ok':'');el.title=aiMode==='local'?'Claude is not available in this view, so the operator understands a fixed set of commands.':''}
+const openAgentIfRoom=()=>{if(window.innerWidth<=1180)$('#app').classList.add('agent-open')};
+
+/* ---------- understanding a request ---------- */
+function snapshot(){return {role:S.role,screen:view,autonomy:S.autonomy,
+  schools:S.schools.map(s=>({id:s.id,name:s.name,zone:s.zone,participation:s.part,health:s.health})),
+  photographers:S.crew.map(p=>({id:p.id,name:p.name,zone:p.zone,shoots:load(p.id),daysOff:p.off})),
+  shoots:S.events.map(e=>({id:e.id,school:school(e.school).name,type:e.type,day:dayLabel(e.day),dayIndex:e.day,students:e.students,photographer:e.crew,status:e.status})),
+  deals:S.deals.map(d=>({id:d.id,name:d.name,stage:d.stage,value:d.value,score:d.score,next:d.next})),
+  contracts:S.contracts.map(c=>({id:c.id,title:c.title,status:CSTEPS[c.step],value:c.value,note:c.note})),
+  galleries:S.orders.map(o=>({id:o.id,school:school(o.school).name,participation:partOf(o),lastFall:o.lastYear,notOrdered:o.shot-o.ordered,closesInDays:o.closes,reminded:o.reminded})),
+  exceptions:S.exceptions.filter(x=>!x.done).map(x=>({id:x.id,what:x.what,who:x.who})),
+  tickets:S.tickets.filter(t=>t.status==='Open').map(t=>({id:t.id,subject:t.subject,from:t.from,priority:t.pri,slaHours:t.sla})),
+  invoices:S.invoices.map(i=>({id:i.id,school:school(i.school).name,amount:i.amount,status:i.status,daysLate:i.age,inQuickBooks:i.qb})),
+  automations:S.rules.map(r=>({id:r.id,name:r.name,on:r.on})),
+  approvalQueue:S.queue.map(q=>({id:q.id,area:q.area,title:q.title,sendsOutbound:q.actions.some(a=>OPS[a.op].risk==='outbound')}))}}
+const RULES=()=>`You are the operator inside SnapFlow, software that runs a school photography company. You act for the signed-in user by choosing operations; the app runs them and asks the user to confirm anything that goes out to schools or parents.
+Reply with ONLY one JSON object: {"say": string, "actions": [{"op": string, ...}]}
+"say": 1 to 3 short plain sentences. Answer questions from the data below. Use names, never ids. No markdown.
+"actions": operations to run in order, or [] when the user only asked a question. Only use ids that exist in the data. Never invent an operation.
+Operations:
+{"op":"go","view":one of ${Object.keys(TITLES).filter(can).join('|')}}
+{"op":"assign","event":shootId,"photographer":photographerId}
+{"op":"auto_schedule"} assigns every shoot with no photographer
+{"op":"send_contract","contract":id} sends for e-signature
+{"op":"mark_signed","contract":id} records a signature and starts all six departments
+{"op":"send_reminder","order":galleryId} emails and texts families who have not ordered
+{"op":"reply_ticket","ticket":id} sends the drafted reply
+{"op":"resolve_exception","exception":id}
+{"op":"sync_quickbooks"}
+{"op":"chase_invoice","invoice":id}
+{"op":"advance_deal","deal":id}
+{"op":"send_followup","deal":id}
+{"op":"toggle_automation","automation":id,"on":boolean}
+{"op":"set_autonomy","area":Scheduling|Sales|Contracts|Orders|Support|Accounting,"level":suggest|ask|auto}
+{"op":"approve","item":queueId} runs an item from the approval queue
+Example: {"say":"Dana is free and in the North zone, so I'm putting her on Oakmont.","actions":[{"op":"assign","event":"e4","photographer":"p1"}]}
+Current data: ${JSON.stringify(snapshot())}`;
+
+function localBrain(q){const t=q.toLowerCase(),has=(...w)=>w.some(x=>t.includes(x));
+  const find=(list,key='name')=>S[list].find(x=>{const n=(key==='school'?school(x.school).name:x[key]).toLowerCase();return n.split(/[ ·—]+/).filter(w=>w.length>3).some(w=>t.includes(w))});
+  const navHit=Object.keys(TITLES).find(v=>t.includes(TITLES[v].toLowerCase())||t.includes(v));
+  if(has('approve')){const items=S.queue.filter(x=>has('all','everything')&&!has('internal','low-risk','safe')?true:!x.actions.some(a=>OPS[a.op].risk==='outbound'));return items.length?{say:`Running ${items.length} approved ${items.length===1?'item':'items'}.`,actions:items.map(i=>({op:'approve',item:i.id}))}:{say:'Nothing in the queue is internal-only. The rest sends something out, so approve those one by one.',actions:[]}}
+  if(has('assign','staff','auto-schedule','schedule all'))return {say:'Assigning each open shoot to the closest free photographer.',actions:[{op:'auto_schedule'},{op:'go',view:'schedule'}]};
+  if(has('signed','signature','onboard')){const c=find('contracts','title')||by('contracts','c1');return {say:`Recording the signature on ${c.title} and starting every department.`,actions:[{op:'go',view:'contracts'},{op:'mark_signed',contract:c.id}]}}
+  if(has('renew')||has('send')&&has('contract')){const c=find('contracts','title')||by('contracts','c2');return {say:`Sending ${c.title}.`,actions:[{op:'send_contract',contract:c.id}]}}
+  if(has('remind','have not ordered',"haven't ordered")){const o=find('orders','school')||[...S.orders].sort((a,b)=>partOf(a)-partOf(b))[0];return {say:`${o.shot-o.ordered} families at ${school(o.school).name} have not ordered.`,actions:[{op:'send_reminder',order:o.id}]}}
+  if(has('exception'))return {say:'Applying the proposed fix to each open exception.',actions:S.exceptions.filter(x=>!x.done).map(x=>({op:'resolve_exception',exception:x.id}))};
+  if(has('draft','repl')){const ts=S.tickets.filter(x=>x.status==='Open'&&(!has('except','safe')||x.pri!=='High'));return {say:`${ts.length} drafted replies ready to send.`,actions:ts.map(x=>({op:'reply_ticket',ticket:x.id}))}}
+  if(has('sla','ticket')){const ts=S.tickets.filter(x=>x.status==='Open').sort((a,b)=>a.sla-b.sla);return {say:ts.length?`Closest to SLA: "${ts[0].subject}" with ${ts[0].sla}h left. ${ts.length} tickets are open.`:'No open tickets.',actions:[{op:'go',view:'support'}]}}
+  if(has('chase','overdue')){const od=S.invoices.filter(i=>i.status==='Overdue');return od.length?{say:`${od.length} invoices are overdue for ${money(od.reduce((s,i)=>s+i.amount,0))}.`,actions:od.map(i=>({op:'chase_invoice',invoice:i.id}))}:{say:'Nothing is overdue.',actions:[]}}
+  if(has('quickbooks','sync'))return {say:'Syncing with QuickBooks Online.',actions:[{op:'sync_quickbooks'}]};
+  if(has('follow')){const d=find('deals')||by('deals','d1');return {say:`Follow-up for ${d.name} is drafted from the proposal thread.`,actions:[{op:'send_followup',deal:d.id}]}}
+  if(has('deal','work first')){const d=[...S.deals].filter(x=>x.stage!=='Won').sort((a,b)=>b.score*b.value-a.score*a.value)[0];return {say:`${d.name}: ${money(d.value)} with a score of ${d.score}. Next step: ${d.next}.`,actions:[{op:'go',view:'pipeline'}]}}
+  if(has('on its own','autopilot')){const a=Object.keys(S.autonomy).find(x=>t.includes(x.toLowerCase()));if(a)return {say:`${a} will now act and report back.`,actions:[{op:'set_autonomy',area:a,level:'auto'}]}}
+  if(has('turn on','turn off','pause')){const r=find('rules')||by('rules','a5');return {say:'',actions:[{op:'toggle_automation',automation:r.id,on:!has('off','pause')}]}}
+  if(has('behind','participation')){const b=S.orders.filter(o=>partOf(o)<o.lastYear).map(o=>`${school(o.school).name} (${partOf(o)}% vs ${o.lastYear}%)`);return {say:b.length?'Behind last fall: '+b.join(', ')+'.':'Every gallery is at or ahead of last fall.',actions:[]}}
+  if(has('free')){const d=(S.events.find(e=>!e.crew)||{day:1}).day;const f=S.crew.filter(p=>!p.off.includes(d)&&!S.events.some(e=>e.day===d&&e.crew===p.id)).map(p=>p.name);return {say:`Free on ${dayLabel(d)}: ${f.join(', ')||'no one'}.`,actions:[]}}
+  if(has('shooting today','who is shooting')){return {say:S.events.filter(e=>e.day===0).map(e=>`${crewName(e.crew)} at ${school(e.school).name}`).join('; ')+'.',actions:[]}}
+  if(has('retake'))return {say:`Retakes: Maple Grove ${dayLabel(0)}, Oakmont ${dayLabel(1)}, Sunnyside ${dayLabel(3)}.`,actions:[]};
+  if(has('attention','today','brief','school needs')){const o=S.events.filter(e=>!e.crew).length,k=S.tickets.filter(x=>x.status==='Open'&&x.sla<=2).length;return {say:`${S.queue.length} items wait for your OK, ${o} shoots need a photographer and ${k} ticket is close to SLA. Riverbend Middle participation is the biggest risk this week.`,actions:[{op:'go',view:'briefing'}]}}
+  if(has('what did you do')){return {say:S.log.length?`${S.log.length} actions so far. The latest: ${S.log[0].text}.`:'Nothing yet in this session.',actions:[{op:'go',view:'activity'}]}}
+  if(has('3-pose','pose'))return {say:'Each student gets three frames. Every frame is checked for closed eyes, glare and head turn, and the best one is accepted so parents choose from good poses only.',actions:[]};
+  if(navHit)return {say:'',actions:[{op:'go',view:navHit}]};
+  return {say:'I can assign shoots, send contracts and reminders, reply to tickets, chase invoices, sync QuickBooks and open any screen. Try one of the suggestions below.',actions:[]}}
+
+async function ask(q){q=q.trim();if(!q||busy)return;chat.push({role:'user',text:q});openAgentIfRoom();
+  let out=null;
+  if(sample&&aiMode==='claude'){busyOn('think');renderChat();ctl=new AbortController();
+    const turns=chat.filter(m=>m.text).slice(-7).map(m=>({role:m.role==='user'?'user':'assistant',content:m.text}));
+    while(turns.length&&turns[0].role!=='user')turns.shift();
+    try{const r=await sample.json([{role:'user',content:RULES()},...turns],{modelTier:'quick',cache:false,signal:ctl.signal});
+      if(r&&typeof r==='object')out={say:String(r.say||''),actions:Array.isArray(r.actions)?r.actions:[]}}
+    catch(e){if(e&&e.code==='cancelled'){busyOn(false);chat.push({role:'ai',text:'Stopped.'});renderChat();return}
+      if(e&&['not_granted','sampling_disabled','not_declared','capability_disabled','capability_removed'].includes(e.code)){aiMode='local';setStatus()}
+      else if(e&&e.code==='rate_limited'){busyOn(false);chat.push({role:'ai',text:'Claude is rate limited right now. Try again in a minute, or use a suggestion below.'});renderChat();return}}
+    busyOn(false)}
+  if(!out)out=localBrain(q);
+  propose(out.say,out.actions);
+}
+
+/* ---------- events ---------- */
+const ACT={
+  nav:()=>$('#app').classList.toggle('nav-open'),
+  agent:()=>{$('#app').classList.toggle('agent-open');if($('#app').classList.contains('agent-open'))$('#ask').focus()},
+  closeDrawers:()=>$('#app').classList.remove('nav-open','agent-open'),
+  reset:()=>{S=seed();chat=[];undoSnap=null;save();render();renderChat();toast('Sample data reset')},
+  say:d=>ask(d.q),
+  op:d=>{const a={...d};delete a.act;if('on' in a)a.on=a.on==='true';const lab=OPS[a.op].label(a);
+    if(needsOK(a)&&S.autonomy[OPS[a.op].area]==='suggest'){chat.push({role:'user',text:lab});propose('This area is set to suggest only, so here is the plan.',[a]);openAgentIfRoom()}else doNow([a],lab)},
+  approve:d=>{const q=by('queue',d.id);if(q)doNow([{op:'approve',item:q.id}],'Approve: '+q.title)},
+  approveAll:()=>doNow(S.queue.filter(x=>areaVisible(x.area)).map(q=>({op:'approve',item:q.id})),'Approve everything in the queue'),
+  dismiss:d=>{S.queue=S.queue.filter(q=>q.id!==d.id);save();render();toast('Dismissed')},
+  runPlan:d=>{const m=chat.find(m=>m.plan&&m.plan.id==d.id);if(m&&!busy)runPlan(m.plan)},
+  cancelPlan:d=>{const m=chat.find(m=>m.plan&&m.plan.id==d.id);if(m){m.plan.status='cancelled';m.plan.steps.forEach(s=>s.st='skip');renderChat()}},
+  undo:()=>undo(),
+  pick:d=>{sel[d.kind]=d.id;render()},
+  autonomy:d=>{S.autonomy[d.area]=d.level;save();render()},
+  rule:d=>{const r=by('rules',d.id);r.on=!r.on;save();render()},
+  flag:d=>{S.flags[d.f]=!S.flags[d.f];save();render()},
+  hue:d=>{S.brandHue=+d.h;save();render()},
+  shoot:()=>{const c=S.capture;(c.shots[c.idx]=c.shots[c.idx]||[]).push(1);save();render()},
+  retake:()=>{const c=S.capture;c.shots[c.idx]=[];if(c.accepted)delete c.accepted[c.idx];save();render()},
+  acceptBest:()=>{const c=S.capture,sh=c.shots[c.idx]||[];let b=sh.findIndex((_,k)=>!FLAGS[c.idx+'-'+k]);if(b<0)b=0;(c.accepted=c.accepted||{})[c.idx]=b;c.idx=Math.min(ROSTER.length-1,c.idx+1);save();render()},
+  student:d=>{S.capture.idx=+d.i;save();render()},
+  scan:()=>{const c=S.capture,acc=c.accepted||{};const n=ROSTER.findIndex((_,k)=>acc[k]===undefined&&k!==c.idx);if(n>=0){c.idx=n;save();render();toast('Ticket scanned: '+ROSTER[n])}}
+};
+document.addEventListener('click',e=>{const el=e.target.closest('[data-act]');if(!el)return;if(el.tagName==='A')return;const f=ACT[el.dataset.act];if(f){e.preventDefault();f(el.dataset)}});
+document.addEventListener('input',e=>{const t=e.target;if(t.dataset&&t.dataset.ticket){const k=by('tickets',t.dataset.ticket);if(k){k.draft=t.value;save()}}});
+document.addEventListener('submit',e=>{e.preventDefault();
+  if(e.target.id==='composer'){if(busy==='think'){ctl&&ctl.abort();return}const a=$('#ask');const q=a.value;a.value='';ask(q)}
+  if(e.target.id==='lookup'){const c=$('#code').value.trim().toUpperCase(),o=$('#lookupOut');const D={'MG-4821':'Ava B. · Package B · at the lab, ships in 3 days','RB-1077':'Noah C. · no order yet · gallery closes in 5 days'};o.textContent=D[c]||'No order found for that code. Check the flyer or ask us below.'}});
+$('#ask').addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();$('#composer').requestSubmit()}});
+document.addEventListener('keydown',e=>{if((e.metaKey||e.ctrlKey)&&e.key.toLowerCase()==='k'){e.preventDefault();openAgentIfRoom();$('#ask').focus()}});
+$('#role').addEventListener('change',e=>{S.role=e.target.value;save();render()});
+function route(){const h=location.hash.slice(1);view=V[h]?h:'briefing';$('#app').classList.remove('nav-open');render();$('#view').scrollTop=0}
+window.addEventListener('hashchange',route);
+
+route();renderChat();setStatus();
+(async()=>{try{sample=window.claude&&window.claude.use?await window.claude.use('sample'):null}catch(e){sample=null}aiMode=sample?'claude':'local';setStatus()})();
+</script>
+</body>
+</html>
