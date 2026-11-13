@@ -1,0 +1,278 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// Every table carries tenantId. All queries go through lib/data.ts or lib/ops.ts, which scope by it.
+
+model Tenant {
+  id        String   @id @default(cuid())
+  name      String
+  slug      String   @unique
+  brandHue  Int      @default(262)
+  autonomy  Json     @default("{}")
+  rulesOff  String[] @default([])
+  createdAt DateTime @default(now())
+  users     User[]
+}
+
+model User {
+  id        String   @id @default(cuid())
+  tenantId  String
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  clerkId   String?  @unique
+  email     String
+  name      String
+  role      String   @default("Owner")
+  createdAt DateTime @default(now())
+
+  @@unique([tenantId, email])
+}
+
+model School {
+  id           String     @id @default(cuid())
+  tenantId     String
+  name         String
+  district     String     @default("")
+  zone         String     @default("")
+  enrollment   Int        @default(0)
+  rosterSource String     @default("CSV upload")
+  contactName  String     @default("")
+  contactEmail String     @default("")
+  gear         String     @default("")
+  createdAt    DateTime   @default(now())
+  shoots       Shoot[]
+  contracts    Contract[]
+  galleries    Gallery[]
+  tickets      Ticket[]
+  invoices     Invoice[]
+  students     Student[]
+
+  @@index([tenantId])
+}
+
+model Student {
+  id          String         @id @default(cuid())
+  tenantId    String
+  schoolId    String
+  school      School         @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  name        String
+  homeroom    String         @default("")
+  parentEmail String         @default("")
+  entries     GalleryEntry[]
+  poses       Pose[]
+
+  @@index([tenantId, schoolId])
+}
+
+model Photographer {
+  id       String     @id @default(cuid())
+  tenantId String
+  name     String
+  email    String     @default("")
+  zone     String     @default("")
+  payType  String     @default("Hourly")
+  daysOff  DateTime[] @db.Date
+  shoots   Shoot[]
+
+  @@index([tenantId])
+}
+
+model Shoot {
+  id             String        @id @default(cuid())
+  tenantId       String
+  schoolId       String
+  school         School        @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  type           String
+  date           DateTime      @db.Date
+  students       Int           @default(0)
+  photographerId String?
+  photographer   Photographer? @relation(fields: [photographerId], references: [id], onDelete: SetNull)
+  status         String        @default("scheduled") // scheduled | briefed | onsite | complete
+  poses          Pose[]
+
+  @@index([tenantId, date])
+}
+
+model Pose {
+  id        String   @id @default(cuid())
+  tenantId  String
+  shootId   String
+  shoot     Shoot    @relation(fields: [shootId], references: [id], onDelete: Cascade)
+  studentId String
+  student   Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  number    Int
+  flag      String   @default("") // "" = good, otherwise the problem
+  accepted  Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  @@index([tenantId, shootId])
+}
+
+model Deal {
+  id           String   @id @default(cuid())
+  tenantId     String
+  name         String
+  detail       String   @default("")
+  stage        String   @default("Lead")
+  valueCents   Int      @default(0)
+  rep          String   @default("")
+  contactEmail String   @default("")
+  nextStep     String   @default("")
+  lastTouch    DateTime @default(now())
+
+  @@index([tenantId])
+}
+
+model Contract {
+  id         String    @id @default(cuid())
+  tenantId   String
+  schoolId   String
+  school     School    @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  title      String
+  scope      String    @default("")
+  valueCents Int       @default(0)
+  status     String    @default("draft") // draft | sent | viewed | signed
+  signToken  String    @unique @default(uuid())
+  signedBy   String    @default("")
+  sentAt     DateTime?
+  viewedAt   DateTime?
+  signedAt   DateTime?
+  termEnds   DateTime? @db.Date
+  tasks      Task[]
+
+  @@index([tenantId])
+}
+
+model Task {
+  id         String    @id @default(cuid())
+  tenantId   String
+  contractId String?
+  contract   Contract? @relation(fields: [contractId], references: [id], onDelete: Cascade)
+  dept       String
+  label      String
+  done       Boolean   @default(false)
+  createdAt  DateTime  @default(now())
+
+  @@index([tenantId])
+}
+
+model Gallery {
+  id           String           @id @default(cuid())
+  tenantId     String
+  schoolId     String
+  school       School           @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  name         String
+  closesOn     DateTime         @db.Date
+  lastYearPart Int?
+  remindedAt   DateTime?
+  entries      GalleryEntry[]
+  exceptions   OrderException[]
+
+  @@index([tenantId])
+}
+
+model GalleryEntry {
+  id          String    @id @default(cuid())
+  tenantId    String
+  galleryId   String
+  gallery     Gallery   @relation(fields: [galleryId], references: [id], onDelete: Cascade)
+  studentId   String
+  student     Student   @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  accessCode  String
+  status      String    @default("none") // none | ordered | lab | shipped
+  package     String    @default("")
+  amountCents Int       @default(0)
+  viewedAt    DateTime?
+
+  @@unique([tenantId, accessCode])
+  @@index([galleryId])
+}
+
+model OrderException {
+  id         String    @id @default(cuid())
+  tenantId   String
+  galleryId  String?
+  gallery    Gallery?  @relation(fields: [galleryId], references: [id], onDelete: Cascade)
+  kind       String
+  subject    String
+  fix        String    @default("")
+  resolvedAt DateTime?
+
+  @@index([tenantId])
+}
+
+model Ticket {
+  id        String   @id @default(cuid())
+  tenantId  String
+  schoolId  String?
+  school    School?  @relation(fields: [schoolId], references: [id], onDelete: SetNull)
+  subject   String
+  fromName  String   @default("")
+  fromEmail String   @default("")
+  body      String
+  priority  String   @default("Normal")
+  dueAt     DateTime
+  status    String   @default("open") // open | resolved
+  draft     String   @default("")
+  createdAt DateTime @default(now())
+
+  @@index([tenantId, status])
+}
+
+model Invoice {
+  id          String    @id @default(cuid())
+  tenantId    String
+  schoolId    String
+  school      School    @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  description String
+  amountCents Int
+  status      String    @default("draft") // draft | sent | paid
+  issuedOn    DateTime  @default(now()) @db.Date
+  dueOn       DateTime? @db.Date
+  paidOn      DateTime? @db.Date
+  remindedAt  DateTime?
+
+  @@index([tenantId])
+}
+
+model Outbox {
+  id        String   @id @default(cuid())
+  tenantId  String
+  runId     String   @default("")
+  toAddress String
+  subject   String
+  body      String
+  status    String // sent | not_connected | no_address | failed
+  detail    String   @default("")
+  createdAt DateTime @default(now())
+
+  @@index([tenantId, createdAt])
+}
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  tenantId  String
+  runId     String
+  actor     String
+  op        String
+  label     String
+  note      String   @default("")
+  undo      Json?
+  undone    Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  @@index([tenantId, createdAt])
+}
+
+model Dismissal {
+  id       String @id @default(cuid())
+  tenantId String
+  key      String
+
+  @@unique([tenantId, key])
+}
