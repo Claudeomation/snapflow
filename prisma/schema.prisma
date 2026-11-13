@@ -16,6 +16,7 @@ model Tenant {
   brandHue  Int      @default(262)
   autonomy  Json     @default("{}")
   rulesOff  String[] @default([])
+  ingestTokenHash String?  @unique
   createdAt DateTime @default(now())
   users     User[]
 }
@@ -170,7 +171,9 @@ model Gallery {
   closesOn     DateTime         @db.Date
   lastYearPart Int?
   remindedAt   DateTime?
+  lastSyncAt   DateTime?
   entries      GalleryEntry[]
+  imports      ImportRun[]
   exceptions   OrderException[]
 
   @@index([tenantId])
@@ -187,6 +190,7 @@ model GalleryEntry {
   status      String    @default("none") // none | ordered | lab | shipped
   package     String    @default("")
   amountCents Int       @default(0)
+  orderRef    String    @default("") // order numbers from the storefront
   viewedAt    DateTime?
 
   @@unique([tenantId, accessCode])
@@ -275,4 +279,21 @@ model Dismissal {
   key      String
 
   @@unique([tenantId, key])
+}
+
+model ImportRun {
+  id         String   @id @default(cuid())
+  tenantId   String
+  galleryId  String
+  gallery    Gallery  @relation(fields: [galleryId], references: [id], onDelete: Cascade)
+  source     String // file | api
+  fileName   String   @default("")
+  actor      String
+  rows       Int
+  matched    Int
+  added      Int
+  unmatched  Int
+  createdAt  DateTime @default(now())
+
+  @@index([tenantId, createdAt])
 }

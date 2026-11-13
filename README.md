@@ -53,7 +53,7 @@ Do not run the seed against a live database unless you want the sample studio in
 | Schools | School records, CSV roster import |
 | Schedule | Shoots, photographers, zone and availability matching, briefing emails, check-in and completion |
 | Capture | Up to three poses per student against the roster, flags, accept the best |
-| Orders | Galleries with a per-student access code, participation against last year, reminders, exceptions |
+| Orders | Galleries with a per-student access code, order import from a storefront export file, participation against last year, reminders, exceptions |
 | Support | Tickets from staff and the parent portal, drafted replies, send and resolve |
 | Parent portal | Public page per studio: order lookup by access code, retake days, ask a question |
 | Accounting | Invoices, sending, reminders, payments, billed by school |
@@ -66,7 +66,7 @@ Six roles (Owner, Admin, Sales rep, Photographer, Support, Accounting) limit whi
 ## What is not built
 
 - QuickBooks sync, in either direction
-- Storefront sync with gotPhoto or Candid Color; order status is kept in SnapFlow
+- A direct, automatic connection to GotPhoto or Candid Color (see Storefront sync below)
 - Student information system sync; rosters are CSV
 - Text messages
 - Camera tethering and image storage; Capture records poses by hand and stores no photos
@@ -76,6 +76,25 @@ Six roles (Owner, Admin, Sales rep, Photographer, Support, Accounting) limit whi
 - Subscription billing, a cross-studio admin panel, custom domains
 - A photographer mobile app with GPS check-in; check-in is a button on the Schedule screen
 - Rate limiting on the operator and on signed-in actions. The public question form is capped at 60 per studio per hour.
+
+## Storefront sync
+
+Order status reaches SnapFlow in two ways.
+
+**Import a file.** On the Orders screen, choose Import orders on a gallery and pick the order export from your storefront (CSV, semicolon or tab separated also work). SnapFlow guesses which column is which, you confirm, and it shows what will change before anything is saved. Rows are matched to students by access code first, then by name. Rows that match no one are logged as exceptions. Importing the same file twice is safe, and an import can be undone from the operator panel.
+
+**Post to the ingest endpoint.** An Owner creates an ingest key under Settings. A connection or script then sends orders as JSON:
+
+```bash
+curl -X POST "$APP_URL/api/ingest/orders" \
+  -H "Authorization: Bearer $INGEST_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"galleryId":"<gallery id>","orders":[{"accessCode":"ABCD-1234","orderRef":"1001","status":"shipped","package":"Package B","amount":48}]}'
+```
+
+There is no direct GotPhoto or Candid Color connection. GotPhoto states that its API is open only to lab partners and enterprise customers, and no public API was found for Candid Color's CORE. If you get API access from either, the connection would be a small adapter that calls the ingest path above.
+
+The column guessing was written without access to a real GotPhoto or CORE export, so check the mapping on your first import.
 
 ## How it is put together
 

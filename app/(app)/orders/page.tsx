@@ -1,4 +1,5 @@
 import { Bar, Empty, Head, Insight, Pill, Section } from '@/components/bits';
+import { ImportOrders } from '@/components/ImportOrders';
 import { NewRecord, OpButton } from '@/components/ui';
 import { db } from '@/lib/db';
 import { page } from '@/lib/guard';
@@ -22,16 +23,16 @@ export default async function Orders() {
         <NewRecord kind="exception" title="Log an exception" fields={[{ name: 'kind', label: 'Kind', required: true, placeholder: 'Missing image' }, { name: 'subject', label: 'What is affected', required: true }, { name: 'fix', label: 'How to fix it', type: 'textarea' }]} />
       </Head>
       {worst && worst.part < worst.g.lastYearPart! ? <Insight action={<OpButton actions={[{ op: 'send_reminder', id: worst.g.id }]} title={`Remind ${worst.g.school.name} families`} className="btn sm primary">Remind them</OpButton>}>{worst.g.school.name} is {worst.g.lastYearPart! - worst.part} points behind last year with {worst.closes} days left. {worst.none} families have not ordered.</Insight>
-        : <Insight>{rows.length ? 'No open gallery is behind last year.' : 'No galleries yet. Opening one gives every student on the roster an access code.'} Order status is entered here or imported; a live storefront sync is not connected.</Insight>}
+        : <Insight>{rows.length ? 'No open gallery is behind last year.' : 'No galleries yet. Opening one gives every student on the roster an access code.'} Order status comes from your storefront's order export: use Import orders on a gallery.</Insight>}
       <div className="card flush"><div className="tablebox"><table>
         <thead><tr><th>Gallery</th><th className="r">Students</th><th className="r">Viewed</th><th className="r">Ordered</th><th>Participation</th><th className="r">At lab</th><th className="r">Shipped</th><th className="r">Sales</th><th>Closes</th><th /></tr></thead>
         <tbody>{rows.map((r) => (
           <tr key={r.g.id}>
-            <td><b>{r.g.school.name}</b><br /><span className="muted">{r.g.name}</span></td><td className="r num">{r.total}</td><td className="r num">{r.viewed}</td><td className="r num">{r.ordered}</td>
+            <td><b>{r.g.school.name}</b><br /><span className="muted">{r.g.name}</span><br /><span className="faint" style={{ fontSize: 12 }}>{r.g.lastSyncAt ? `orders imported ${dayLabel(r.g.lastSyncAt)}` : 'no orders imported yet'}</span></td><td className="r num">{r.total}</td><td className="r num">{r.viewed}</td><td className="r num">{r.ordered}</td>
             <td><div className="row" style={{ flexWrap: 'nowrap' }}><span className="num" style={{ width: 34 }}>{r.part}%</span><Bar value={r.part} tone={r.g.lastYearPart == null ? '' : r.part < r.g.lastYearPart - 5 ? 'bad' : r.part < r.g.lastYearPart ? 'warn' : 'ok'} /></div>{r.g.lastYearPart != null && <span className="faint" style={{ fontSize: 12 }}>last year {r.g.lastYearPart}%</span>}</td>
             <td className="r num">{r.lab}</td><td className="r num">{r.shipped}</td><td className="r num">{money(r.sales)}</td>
             <td>{r.closes < 0 ? <Pill>Closed</Pill> : <Pill tone={r.closes <= 5 ? 'warn' : ''}>{r.closes} days</Pill>}</td>
-            <td>{r.closes >= 0 && r.none > 0 && <OpButton actions={[{ op: 'send_reminder', id: r.g.id }]} title={`Remind ${r.g.school.name} families`}>{r.g.remindedAt ? `Remind again (last ${dayLabel(r.g.remindedAt)})` : 'Remind'}</OpButton>}</td>
+            <td><div className="row"><ImportOrders galleryId={r.g.id} label={`${r.g.school.name} ${r.g.name}`} />{r.closes >= 0 && r.none > 0 && <OpButton actions={[{ op: 'send_reminder', id: r.g.id }]} title={`Remind ${r.g.school.name} families`}>{r.g.remindedAt ? `Remind again (last ${dayLabel(r.g.remindedAt)})` : 'Remind'}</OpButton>}</div></td>
           </tr>
         ))}</tbody>
       </table></div>{!rows.length && <Empty>No galleries yet.</Empty>}</div>

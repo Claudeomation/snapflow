@@ -10,6 +10,7 @@ import { describe, execute, undoRun, type Action, type Step } from '@/lib/ops';
 import { interpret } from '@/lib/operator';
 import { canAct, ROLES, type Area } from '@/lib/roles';
 import { addDays, today } from '@/lib/format';
+import { applyOrders, detectMapping, FIELDS, mapRows, parseCsv, rotateIngestToken, summary, type FieldKey, type Mapping } from '@/lib/storefront';
 
 const ActionList = z.array(z.object({ op: z.string().max(40), id: z.string().max(60).optional(), id2: z.string().max(60).optional(), value: z.string().max(4000).optional() })).max(40);
 const refresh = () => revalidatePath('/', 'layout');
@@ -172,3 +173,54 @@ export async function setDemoRole(role: string) {
   (await cookies()).set('demo-role', z.enum(ROLES).parse(role), { httpOnly: true, sameSite: 'lax', path: '/' });
   refresh();
 }
+
+// ---- Storefront sync ----
+
+const MappingSchema = z.record(z.string(), z.string().max(200));
+const cleanMapping = (m: Record<string, string>, headers: string[]): Mapping =>
+  Object.fromEntries(Object.entries(m).filter(([k, v]) => k in FIELDS && headers.includes(v))) as Mapping;
+
+export type ImportPreview = { ok: true; headers: string[]; mapping: Mapping; sample: Record<string, string>[]; rows: number; matched: number; students: number; unmatched: number; unmatchedSample: string[]; wouldAdd: number } | { ok: false; error: string };
+
+/** Reads an export file, guesses which column is which, and reports what an import would do without changing anything. */
+export async function previewImport(galleryId: string, csv: string, mapping: Record<string, string> | null, addMissing: boolean, amountIs: 'order' | 'line'): Promise<ImportPreview> {
+  const c = await requireCtx();
+  if (!canAct(c.role, 'Orders')) return { ok: false, error: 'Your role cannot import orders' };
+  const { headers, rows } = parseCsv(z.string().max(8_000_000).parse(csv));
+  if (!headers.length || !rows.length) return { ok: false, error: 'That file has no rows. Export it as CSV and try again.' };
+  if (rows.length > 20000) return { ok: false, error: 'That file has more than 20,000 rows. Export one job at a time.' };
+  const m = mapping ? cleanMapping(MappingSchema.parse(mapping), headers) : detectMapping(headers);
+  if (!m.accessCode && !m.studentName && !(m.firstName || m.lastName)) return { ok: true, headers, mapping: m, sample: rows.slice(0, 3), rows: rows.length, matched: 0, students: 0, unmatched: rows.length, unmatchedSample: [], wouldAdd: 0 };
+  try {
+    const r = await applyOrders(c.tenantId, galleryId, mapRows(rows, m), { amountIs, addMissing, source: 'file', actor: c.user.name, dryRun: true });
+    return { ok: true, headers, mapping: m, sample: rows.slice(0, 3), rows: r.rows, matched: r.matched, students: r.students, unmatched: r.unmatched, unmatchedSample: r.unmatchedSample, wouldAdd: r.added };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : 'Could not read that file' };
+  }
+}
+
+export async function runImport(galleryId: string, csv: string, mapping: Record<string, string>, addMissing: boolean, amountIs: 'order' | 'line', fileName: string): Promise<{ ok: true; result: RunResult } | { ok: false; error: string }> {
+  const c = await requireCtx();
+  if (!canAct(c.role, 'Orders')) return { ok: false, error: 'Your role cannot import orders' };
+  const { headers, rows } = parseCsv(z.string().max(8_000_000).parse(csv));
+  if (rows.length > 20000) return { ok: false, error: 'That file has more than 20,000 rows.' };
+  const m = cleanMapping(MappingSchema.parse(mapping), headers);
+  if (!m.accessCode && !m.studentName && !(m.firstName || m.lastName)) return { ok: false, error: 'Choose the column that holds the access code or the student name.' };
+  try {
+    const r = await applyOrders(c.tenantId, galleryId, mapRows(rows, m), { amountIs, addMissing, source: 'file', fileName: fileName.slice(0, 120), actor: c.user.name });
+    refresh();
+    return { ok: true, result: { runId: r.runId!, steps: [{ action: { op: 'import_orders' }, label: `Import ${fileName || 'orders'}`, area: 'Orders', needsOK: false, ok: true, note: summary(r) }] } };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : 'Import failed' };
+  }
+}
+
+/** Owner only. Returns the new key once; only its hash is stored. The previous key stops working. */
+export async function newIngestKey(): Promise<string | null> {
+  const c = await requireCtx();
+  if (c.role !== 'Owner') return null;
+  const t = await rotateIngestToken(c.tenantId);
+  refresh();
+  return t;
+}
+export type { FieldKey };

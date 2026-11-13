@@ -1,4 +1,5 @@
 import { Empty, Head, Pill, Section } from '@/components/bits';
+import { IngestKey } from '@/components/ImportOrders';
 import { MemberForm, RemoveMember, StudioForm } from '@/components/ui';
 import { clerkEnabled } from '@/lib/auth';
 import { db } from '@/lib/db';
@@ -11,9 +12,11 @@ const OUT: Record<string, [string, '' | 'ok' | 'warn' | 'bad']> = { sent: ['Sent
 
 export default async function Settings() {
   const c = await page('/settings');
-  const [team, outbox] = await Promise.all([
+  const [team, outbox, tenant, imports] = await Promise.all([
     db.user.findMany({ where: { tenantId: c.tenantId }, orderBy: { createdAt: 'asc' } }),
     db.outbox.findMany({ where: { tenantId: c.tenantId }, orderBy: { createdAt: 'desc' }, take: 15 }),
+    db.tenant.findUniqueOrThrow({ where: { id: c.tenantId }, select: { ingestTokenHash: true } }),
+    db.importRun.findMany({ where: { tenantId: c.tenantId }, include: { gallery: { include: { school: true } } }, orderBy: { createdAt: 'desc' }, take: 8 }),
   ]);
   const owner = c.role === 'Owner';
   const links: [string, boolean | null, string][] = [
@@ -22,7 +25,6 @@ export default async function Settings() {
     ['Email (Resend)', emailConnected(), emailConnected() ? 'Outgoing messages are delivered.' : 'Not configured. Outgoing messages are saved below and not delivered.'],
     ['Text messages', null, 'Not built yet.'],
     ['QuickBooks', null, 'Not built yet.'],
-    ['Storefront sync (gotPhoto, Candid Color)', null, 'Not built yet. Galleries and order status are kept in SnapFlow.'],
     ['Student information systems', null, 'Not built yet. Rosters are imported as CSV.'],
   ];
   return (
@@ -38,6 +40,11 @@ export default async function Settings() {
       </div>
       <Section title="Connections">
         {links.map(([name, on, note]) => <div className="item" key={name}><div className="body"><b>{name}</b><small>{note}</small></div>{on === null ? <Pill>Not available</Pill> : <Pill tone={on ? 'ok' : 'warn'}>{on ? 'Connected' : 'Not connected'}</Pill>}</div>)}
+      </Section>
+      <Section title="Storefront sync" sub="Orders come in from your storefront's export file (Import orders on the Orders screen) or from a connection that posts to /api/ingest/orders with the key below. A direct GotPhoto or Candid Color connection is not built: neither publishes an open API.">
+        {owner && <div className="item"><div className="body"><b>Ingest key</b><IngestKey hasKey={!!tenant.ingestTokenHash} /></div></div>}
+        {imports.map((i) => <div className="item" key={i.id}><div className="body"><b>{i.gallery.school.name} {i.gallery.name}</b><small>{i.rows} rows · {i.matched} matched · {i.added} added · {i.unmatched} unmatched · {i.source === 'api' ? 'connection' : i.fileName || 'file'} · {i.actor} · {i.createdAt.toLocaleString('en-US')}</small></div></div>)}
+        {!imports.length && <Empty>No imports yet.</Empty>}
       </Section>
       <Section title="Outbox" sub="The last 15 outgoing messages.">
         {outbox.map((m) => <div className="item" key={m.id}><div className="body"><b>{m.subject}</b><small>To {m.toAddress || 'no address'} · {m.createdAt.toLocaleString('en-US')}{m.detail && ` · ${m.detail}`}</small></div><Pill tone={OUT[m.status]?.[1] ?? ''}>{OUT[m.status]?.[0] ?? m.status}</Pill></div>)}
